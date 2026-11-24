@@ -1,0 +1,128 @@
+# XaliCrates
+
+**XaliCrates** is a Folia-safe Paper crate plugin with physical, virtual, placed, entity, and mining lucky-chest crates, seven built-in opening animations plus custom stage-based YAML animations, customizable player-facing menus via [XaliMenu](../menu/README.md), optional full-inventory overflow and ad-hoc reward storage via [XaliRedeem](../redeem/README.md), a non-editable in-game admin editor, a live [web editor](editor/README.md), and a full migrator from SpecializedCrates.
+
+## Contents
+
+- [Architecture](#architecture)
+- [Dependencies](#dependencies)
+- [Commands](#commands)
+- [Permissions](#permissions)
+- [Configuration](#configuration)
+- [XaliMenu integration](#xalimenu-integration)
+- [XaliRedeem integration](#xaliredeem-integration)
+- [Migration from SpecializedCrates](#migration-from-specializedcrates)
+- [Placeholders](#placeholders)
+- [Tests](#tests)
+- [See also](#see-also)
+
+## Architecture
+
+| Part | Group / Package | Role |
+|---|---|---|
+| `crates/api` | `net.xalitoria.crates` | Java/Bukkit-only public API (`XaliCratesApi`, `CrateInfo`, `RewardInfo`, `PlacedCrateInfo`, and Bukkit events). Enforced by `AddonSurface`. |
+| `crates/paper` | `mc.xalitoria.crates.paper` | Paper/Folia plugin: database repositories, weighted roller, animations, native `TextDisplay` holograms, non-editable admin GUI, web editor server/relay, and SpecializedCrates migrator. |
+| `crates/editor` | `com.xalitoria.crates.editor` | Schema generator (`:crates:editor:schema` -> `web/schema.json`) and zero-build static web editor sharing `editor-core`. |
+
+## Dependencies
+
+- **Required**: `XaliMenu` — renders all player-facing menus (virtual crates hub, multi-crates, reward previews, virtual keys, and opening history) from customizable `.conf` files. Admin in-game crate editor screens (`gui/editor/`) are hardcoded non-editable Bukkit inventories owned by XaliCrates.
+- **Optional**: `XaliRedeem` (stores overflow items and `redeem.mode: ALWAYS` dynamic rewards as pending rewards without static voucher configs), `Vault` / `VaultUnlocked`, `PlaceholderAPI`, `Nexo`, `ItemsAdder`, `HeadDatabase`.
+
+## Commands
+
+Main command: `/xalicrates` (also `/crates`, `/xcrates`, `/crate`, `/xcrate`).
+Standalone commands: `/xkeys` (also `/keys`, `/cratekeys`, `/xcratekeys`, `/cratekey`, `/xcratekey`), `/xrewards` (also `/rewards`).
+
+| Command | Permission | What it does |
+|---|---|---|
+| `/xalicrates` | `xalicrates.use` | Opens the virtual crates XaliMenu hub. |
+| `/xalicrates preview <crate>` / `/xrewards <crate>` | `xalicrates.preview` | Opens the crate's XaliMenu reward preview. |
+| `/xalicrates keys [list\|send <player> <crate> <amount>]` / `/xkeys` | `xalicrates.keys` | Opens virtual keys menu, lists balances, or sends virtual keys (`xalicrates.keys.send`). |
+| `/xalicrates claim [crate] [amount]` | `xalicrates.claim` | Withdraws virtual keys into physical key items. |
+| `/xalicrates deposit <crate> [amount]` | `xalicrates.keys` | Deposits physical keys into virtual storage. |
+| `/xalicrates history [limit]` | `xalicrates.history` | Views recent crate openings. |
+| `/xalicrates luckychest` | `xalicrates.luckychest.toggle` | Toggles mining-spawned lucky chests for the player. |
+| `/xalicrates givekey\|takekey\|givecrate <player\|all> <crate> [amount] [--virtual]` | `xalicrates.admin.give` / `.take` | Gives or removes physical or virtual keys/crates. |
+| `/xalicrates open\|forceopen <crate> [player\|all]` | `xalicrates.admin` | Opens (or force-opens without keys/cooldown) a crate. |
+| `/xalicrates setcrate <crate>` / `spawncrate <crate> <world> <x> <y> <z>` / `deletecrate` / `delall <crate>` | `xalicrates.admin.edit` | Manages placed crates in worlds. |
+| `/xalicrates editor [crate]` | `xalicrates.admin.edit` | Opens the hardcoded, non-editable in-game admin crate editor. |
+| `/xalicrates web [crate] [--auto-reload]` / `web stop` | `xalicrates.admin.edit` | Opens an encrypted live web editor session. |
+| `/xalicrates share [readonly\|stop] [crate]` / `edits [apply\|drop <id>]` | `xalicrates.admin.edit` | Shares a web editor link whose saves are held for admin approval. |
+| `/xalicrates migrate specializedcrates [path] [--dry-run] [--overwrite] [--skip-data]` | `xalicrates.admin.migrate` | Migrates SpecializedCrates configs, animations, custom menus, placed crates, and player data. |
+| `/xalicrates list\|info\|errors\|validate\|toggleparticles\|reload\|debug` | `xalicrates.admin` | Inspection, validation, and reload utilities. |
+
+## Permissions
+
+| Node | Default | Meaning |
+|---|---|---|
+| `xalicrates.use` | `true` | Base `/xalicrates` command. |
+| `xalicrates.keys` | `true` | View and deposit virtual keys. |
+| `xalicrates.keys.send` | `true` | Send virtual keys to other players. |
+| `xalicrates.claim` | `true` | Withdraw virtual keys as physical items. |
+| `xalicrates.preview` | `true` | Preview crate rewards. |
+| `xalicrates.history` | `true` | View personal opening history. |
+| `xalicrates.luckychest` | `true` | Eligible to spawn lucky chests while mining. |
+| `xalicrates.luckychest.toggle` | `true` | Toggle personal lucky chest spawns. |
+| `xalicrates.place.bypass` | `op` | Bypass block-placement restrictions for static crates. |
+| `xalicrates.admin` | `op` | General admin commands (`open`, `list`, `info`, `errors`, `reload`, `debug`). |
+| `xalicrates.admin.give` / `.take` | `op` | Give or take keys and crates. |
+| `xalicrates.admin.edit` | `op` | In-game editor, web editor, and placed crate commands. |
+| `xalicrates.admin.migrate` | `op` | Run migration commands. |
+
+## Configuration
+
+- `plugins/XaliCrates/config.yml` — global settings (`database`, `keys`, `crates`, `lucky-chest`, `virtual`, `menus`, `redeem`, `holograms`, `particles`, `history`, `animations`, `editor`).
+- `plugins/XaliCrates/language/<lang>.yml` — all player messages.
+- `plugins/XaliCrates/crates/<id>.yml` — one typed YAML file per crate or multi-crate.
+- `plugins/XaliCrates/animations/<id>.yml` — custom stage-based inventory animations (9-column grids per stage).
+
+## XaliMenu integration
+
+On first start (when `menus.write-defaults: true`), XaliCrates writes four starter menus into `plugins/XaliMenu/menus/`: `crates.conf`, `crates-preview.conf`, `crates-keys.conf`, and `crates-history.conf`.
+
+Registered XaliMenu extensions:
+- **Catalogs**: `xalicrates:crates`, `xalicrates:rewards`, `xalicrates:keys`, `xalicrates:history`.
+- **Actions**: `xalicrates:open`, `xalicrates:preview`, `xalicrates:claim-key`, `xalicrates:deposit-key`, `xalicrates:toggle-lucky`.
+- **Conditions**: `xalicrates:has-key`, `xalicrates:can-open`, `xalicrates:on-cooldown`.
+- **ItemSource**: `xalicrates:crate/<id>`, `xalicrates:key/<id>`, `xalicrates:reward/<crate>/<reward>`.
+
+## XaliRedeem integration
+
+When `XaliRedeem` is installed and `redeem.enabled: true`:
+- Overflow items (when `full-inventory: REDEEM`) are stored via `XaliRedeemApi.giveReward` as dynamic pending rewards that do not need static voucher configs in `XaliRedeem`.
+- Individual rewards can set `redeem.mode: ALWAYS` to always deliver into `/redeem`, or `redeem.voucher: <id>` to grant a configured XaliRedeem voucher.
+
+## Migration from SpecializedCrates
+
+```console
+/xalicrates migrate specializedcrates --dry-run
+/xalicrates migrate specializedcrates --overwrite
+```
+
+Converts `Crates/*.crate`, `Crates/*.multicrate`, legacy `Rewards.yml`, `animations/*.yml`, `ActiveCrates.db`, `PlayerData.db`, `PlayerData/*.db`, and MySQL `scPlayerStats` (`SQL.yml`), and generates XaliMenu `.conf` menus for custom preview inventories and multi-crates.
+
+## Placeholders
+
+Requires PlaceholderAPI (`%xalicrates_<key>%`):
+`keys_<crate>`, `physical_keys_<crate>`, `total_keys_<crate>`, `total_virtual_keys`, `crates_<crate>`, `cooldown_<crate>`, `crate_name_<crate>`, `reward_name_<crate>_<reward>`, `reward_chance_<crate>_<reward>`, `last_player_<crate>`, `last_reward_<crate>`, `lucky_enabled`.
+
+## Tests
+
+| Test | What it checks |
+|---|---|
+| `crates/api/test/AddonSurface.kt` | Public API has no Kotlin types or interface `$DefaultImpls`. |
+| `crates/paper/test/RewardRollerTest.kt` | Probabilities, weighted roll, repeat limits, fallback cycle guard, `%amountX-Y%`. |
+| `crates/paper/test/ValidationAndRegistryTest.kt` | Starter crate/animation round-trip and validation rules. |
+| `crates/paper/test/CratesDatabaseTest.kt` | Guarded virtual key/crate updates, concurrent consumption, transfers, cooldowns, history pruning. |
+| `crates/paper/test/SpecializedCratesMigratorTest.kt` | Full migration of crates, multi-crates, animations, menus, and flatfile data. |
+| `crates/paper/test/RelayCryptoTest.kt` | PBKDF2 derivation and AES-256-GCM relay frame sealing/opening. |
+| `crates/editor/test/SchemaTest.kt` | Ensures `crates/editor/web/schema.json` matches the Kotlin model. |
+| `crates/editor/web/test/` | Node.js tests for YAML round-trip, validation, store undo/redo, relay crypto, and schema. |
+
+## See also
+
+- [XaliCrates web editor](editor/README.md)
+- [Shared editor-core](../editor-core/README.md)
+- [XaliMenu](../menu/README.md)
+- [XaliRedeem](../redeem/README.md)

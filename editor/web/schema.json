@@ -1,0 +1,2175 @@
+{
+  "version": "0.1.0",
+  "crateRoot": "CrateConfig",
+  "animationRoot": "AnimationConfig",
+  "builtinAnimations": [
+    "csgo",
+    "discover",
+    "discover-eula",
+    "enclose",
+    "instant",
+    "menu",
+    "open-chest",
+    "roulette"
+  ],
+  "types": {
+    "AmbientEffectsConfig": {
+      "doc": "Ambient effects played continuously around placed crates.",
+      "fields": [
+        {
+          "key": "particles",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "ParticleConfig"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Ambient particles displayed around placed crates."
+        }
+      ]
+    },
+    "AnimationConfig": {
+      "doc": "Root configuration of a custom stage-based crate animation (`plugins/XaliCrates/animations/<id>.yml`).",
+      "fields": [
+        {
+          "key": "inventory-size",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 27,
+          "doc": "Inventory size in slots (multiple of 9, from 9 to 54)."
+        },
+        {
+          "key": "default-frame-ticks",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 4,
+          "doc": "Default ticks each stage stays visible before advancing."
+        },
+        {
+          "key": "auto-close-ticks",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 60,
+          "doc": "Ticks to keep the inventory open after the final stage before auto-closing."
+        },
+        {
+          "key": "min-select",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 4,
+          "doc": "Minimum number of `select-reward` slots the player must pick before advancing."
+        },
+        {
+          "key": "symbols",
+          "type": {
+            "kind": "object",
+            "type": "AnimationSymbols"
+          },
+          "required": false,
+          "doc": "Symbol definitions used in `stages[].grid`."
+        },
+        {
+          "key": "fillers",
+          "type": {
+            "kind": "map",
+            "of": {
+              "kind": "object",
+              "type": "AnimationItem"
+            }
+          },
+          "required": false,
+          "doc": "Named filler items referenced by symbol in stage grids."
+        },
+        {
+          "key": "closed-select-item",
+          "type": {
+            "kind": "object",
+            "type": "AnimationItem"
+          },
+          "required": false,
+          "doc": "Unselected mystery chest item for `select-reward` slots."
+        },
+        {
+          "key": "selected-item",
+          "type": {
+            "kind": "object",
+            "type": "AnimationItem"
+          },
+          "required": false,
+          "doc": "Highlighted item shown after a player selects a `select-reward` slot."
+        },
+        {
+          "key": "opened-selected-item",
+          "type": {
+            "kind": "object",
+            "type": "OpenedSelectedItemConfig"
+          },
+          "required": false,
+          "doc": "Reveal settings for `open-selected-reward` slots."
+        },
+        {
+          "key": "unselected-item",
+          "type": {
+            "kind": "object",
+            "type": "UnselectedItemConfig"
+          },
+          "required": false,
+          "doc": "Replacement for unselected `select-reward` slots after selection ends."
+        },
+        {
+          "key": "reveal-item",
+          "type": {
+            "kind": "object",
+            "type": "AnimationItem"
+          },
+          "required": false,
+          "doc": "Clickable item for `reveal-reward` slots."
+        },
+        {
+          "key": "next-stage-item",
+          "type": {
+            "kind": "object",
+            "type": "AnimationItem"
+          },
+          "required": false,
+          "doc": "Clickable button for `next-stage` slots."
+        },
+        {
+          "key": "stages",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "AnimationStage"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Ordered sequence of stages (1-indexed when referenced by `repeat-stage`)."
+        },
+        {
+          "key": "sounds",
+          "type": {
+            "kind": "object",
+            "type": "AnimationSounds"
+          },
+          "required": false,
+          "doc": "Sound configuration for stages, clicks, and completion."
+        },
+        {
+          "key": "end-effects",
+          "type": {
+            "kind": "object",
+            "type": "AnimationEndEffects"
+          },
+          "required": false,
+          "doc": "Particle effects played on animation completion."
+        }
+      ]
+    },
+    "AnimationEndEffects": {
+      "doc": "Visual effects played when a custom animation completes.",
+      "fields": [
+        {
+          "key": "particles",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "ParticleConfig"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Particle bursts spawned at the player when the animation finishes."
+        }
+      ]
+    },
+    "AnimationItem": {
+      "doc": "One item used as a filler or interactive button inside a custom stage-based animation.",
+      "fields": [
+        {
+          "key": "material",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "gray_stained_glass_pane",
+          "doc": "Material key (e.g. `gray_stained_glass_pane`, `chest`, `ender_chest`)."
+        },
+        {
+          "key": "name",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": " ",
+          "doc": "Optional display name."
+        },
+        {
+          "key": "lore",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Optional lore lines."
+        },
+        {
+          "key": "glow",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "Adds an enchantment glint."
+        },
+        {
+          "key": "amount-from-slot",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "When true, sets the stack size to the slot number (1-indexed), useful for numbered mystery chests."
+        },
+        {
+          "key": "custom-model-data",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 0,
+          "doc": "Optional custom model data integer."
+        },
+        {
+          "key": "item-model",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional resource pack item model key."
+        }
+      ]
+    },
+    "AnimationSounds": {
+      "doc": "Sounds played during a custom animation.",
+      "fields": [
+        {
+          "key": "stage",
+          "type": {
+            "kind": "object",
+            "type": "SoundConfig"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Default sound played on every stage transition."
+        },
+        {
+          "key": "click",
+          "type": {
+            "kind": "object",
+            "type": "SoundConfig"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Sound played when the player clicks an interactive slot."
+        },
+        {
+          "key": "end",
+          "type": {
+            "kind": "object",
+            "type": "SoundConfig"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Sound played when the animation ends."
+        }
+      ]
+    },
+    "AnimationStage": {
+      "doc": "One stage (frame or loop) in a custom inventory animation.",
+      "fields": [
+        {
+          "key": "grid",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Rows of comma-separated symbols (9 columns per row, e.g. `\"F,F,F,R1,R,R1,F,F,F\"`). Omit when repeating another stage."
+        },
+        {
+          "key": "repeat-stage",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 0,
+          "doc": "1-based stage index to repeat (`0` means do not repeat another stage)."
+        },
+        {
+          "key": "repeat-times",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 0,
+          "doc": "How many times to play `repeat-stage`."
+        },
+        {
+          "key": "stay-ticks",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 0,
+          "doc": "Ticks this stage stays active (`0` uses `default-frame-ticks`, `-1` waits indefinitely for player interaction)."
+        },
+        {
+          "key": "reset-rewards",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Persistent reward symbols to re-roll when entering this stage."
+        },
+        {
+          "key": "reward-slots",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Winning slot coordinates as `\"row,col\"` (1-based) awarded when the animation completes on this stage."
+        },
+        {
+          "key": "sound",
+          "type": {
+            "kind": "object",
+            "type": "SoundConfig"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional sound overriding `sounds.stage`."
+        },
+        {
+          "key": "potion-effects",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "PotionEffectSpec"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Optional potion effects applied to the viewer on this stage."
+        },
+        {
+          "key": "inventory-change",
+          "type": {
+            "kind": "enum",
+            "values": [
+              "NONE",
+              "CLOSE",
+              "OPEN"
+            ]
+          },
+          "required": false,
+          "default": "NONE",
+          "doc": "Temporarily close or reopen the animation inventory on this stage."
+        },
+        {
+          "key": "totem-effect",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "Plays the Totem of Undying visual effect on the viewer."
+        }
+      ]
+    },
+    "AnimationSymbols": {
+      "doc": "Symbols used inside stage grids to place dynamic rewards, fillers and interactive controls.",
+      "fields": [
+        {
+          "key": "air",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "A",
+          "doc": "Empty slot symbol."
+        },
+        {
+          "key": "random-reward",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "R",
+          "doc": "Replaced with a freshly rolled random reward on every frame."
+        },
+        {
+          "key": "reward-symbols",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [
+            "R1"
+          ],
+          "doc": "Persistent reward symbols (e.g. `R1`, `R2`) that keep the same rolled reward until listed in `reset-rewards`."
+        },
+        {
+          "key": "random-filler",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "RF",
+          "doc": "Replaced with a random entry from `fillers`."
+        },
+        {
+          "key": "select-reward",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "RS",
+          "doc": "Clickable mystery chest symbol; once `min-select` are picked, advances to the next stage."
+        },
+        {
+          "key": "open-selected-reward",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "OS",
+          "doc": "Displays the player's selected mystery slots for reveal or instant award."
+        },
+        {
+          "key": "reveal-reward",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "RR",
+          "doc": "Clickable symbol that uncovers a random reward into the pool for `selected-reveal-reward`."
+        },
+        {
+          "key": "selected-reveal-reward",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "SR",
+          "doc": "Displays rewards uncovered via `reveal-reward` in arbitrary positions."
+        },
+        {
+          "key": "next-stage",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "NS",
+          "doc": "Clickable button that advances to the next stage (pair with `stay-ticks: -1`)."
+        }
+      ]
+    },
+    "AttributeSpec": {
+      "doc": "One attribute modifier on an item.",
+      "fields": [
+        {
+          "key": "attribute",
+          "type": {
+            "kind": "string"
+          },
+          "required": true,
+          "doc": "Attribute key (e.g. `attack_damage`, `max_health`)."
+        },
+        {
+          "key": "amount",
+          "type": {
+            "kind": "number"
+          },
+          "required": true,
+          "doc": "Modifier amount."
+        },
+        {
+          "key": "operation",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "ADD_NUMBER",
+          "doc": "Operation: `ADD_NUMBER`, `ADD_SCALAR`, or `MULTIPLY_SCALAR_1`."
+        },
+        {
+          "key": "slot",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional equipment slot group (`HAND`, `OFF_HAND`, `HEAD`, `CHEST`, `LEGS`, `FEET`, `ANY`)."
+        }
+      ]
+    },
+    "BannerPatternSpec": {
+      "doc": "One banner layer pattern.",
+      "fields": [
+        {
+          "key": "pattern",
+          "type": {
+            "kind": "string"
+          },
+          "required": true,
+          "doc": "Pattern key (e.g. `border`, `stripe_top`, `creeper`)."
+        },
+        {
+          "key": "color",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "WHITE",
+          "doc": "Dye color name (e.g. `RED`, `GOLD`, `BLUE`)."
+        }
+      ]
+    },
+    "CooldownConfig": {
+      "doc": "Per-crate or per-location cooldown settings.",
+      "fields": [
+        {
+          "key": "duration",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "0s",
+          "doc": "Time a player must wait between openings (`0s`, `30s`, `5m`, `1h 30m`)."
+        },
+        {
+          "key": "per-location",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "Track the cooldown per placed crate location rather than globally per crate type."
+        },
+        {
+          "key": "bypass-permission",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional permission node that bypasses this cooldown."
+        }
+      ]
+    },
+    "CostConfig": {
+      "doc": "Economy cost settings for opening a crate (requires Vault or VaultUnlocked).",
+      "fields": [
+        {
+          "key": "amount",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.0,
+          "doc": "Money charged per opening (`0` disables economy cost)."
+        },
+        {
+          "key": "currency",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "",
+          "doc": "Optional VaultUnlocked currency name; blank uses the default currency."
+        },
+        {
+          "key": "key-or-economy",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "If true and `key.required` is true, players may pay with EITHER a key OR the economy cost instead of both."
+        }
+      ]
+    },
+    "CrateActionConfig": {
+      "doc": "One action executed when opening a crate.",
+      "fields": [
+        {
+          "key": "type",
+          "type": {
+            "kind": "enum",
+            "values": [
+              "MESSAGE",
+              "BROADCAST",
+              "PRE_BROADCAST",
+              "ACTIONBAR",
+              "TITLE",
+              "SUBTITLE",
+              "COMMAND",
+              "PLAYER_COMMAND"
+            ]
+          },
+          "required": true,
+          "doc": "What kind of action to execute."
+        },
+        {
+          "key": "value",
+          "type": {
+            "kind": "string"
+          },
+          "required": true,
+          "doc": "Text or command payload. Placeholders: `%player%`, `%displayname%`, `%crate%`, `%cratename%`, `%key%`, `%reward%`, `%rarity%`."
+        }
+      ]
+    },
+    "CrateConfig": {
+      "doc": "Root configuration of a crate file (`plugins/XaliCrates/crates/<id>.yml`). The file name without `.yml` is the crate's identifier.",
+      "fields": [
+        {
+          "key": "enabled",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "Whether players can open, place, or preview this crate."
+        },
+        {
+          "key": "display-name",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Display name shown in messages, menus and animations (defaults to `crate-item.name` or the crate id)."
+        },
+        {
+          "key": "permission",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional permission required to open this crate."
+        },
+        {
+          "key": "obtain",
+          "type": {
+            "kind": "enum",
+            "values": [
+              "STATIC",
+              "DYNAMIC",
+              "LUCKY_CHEST"
+            ]
+          },
+          "required": false,
+          "default": "STATIC",
+          "doc": "How placed instances of this crate behave (`STATIC`, `DYNAMIC`, or `LUCKY_CHEST`)."
+        },
+        {
+          "key": "display",
+          "type": {
+            "kind": "object",
+            "type": "CrateDisplayConfig"
+          },
+          "required": false,
+          "doc": "How placed instances appear in the world (block or entity)."
+        },
+        {
+          "key": "crate-item",
+          "type": {
+            "kind": "object",
+            "type": "CrateItem"
+          },
+          "required": false,
+          "doc": "Physical crate item given by `/xcrates givecrate` and shown in virtual crate menus."
+        },
+        {
+          "key": "key",
+          "type": {
+            "kind": "object",
+            "type": "KeyConfig"
+          },
+          "required": false,
+          "doc": "Key requirement, physical key item, and key click commands."
+        },
+        {
+          "key": "cost",
+          "type": {
+            "kind": "object",
+            "type": "CostConfig"
+          },
+          "required": false,
+          "doc": "Optional Vault economy cost and key-or-economy rules."
+        },
+        {
+          "key": "cooldown",
+          "type": {
+            "kind": "object",
+            "type": "CooldownConfig"
+          },
+          "required": false,
+          "doc": "Cooldown rules per player or per crate location."
+        },
+        {
+          "key": "opening",
+          "type": {
+            "kind": "object",
+            "type": "OpeningConfig"
+          },
+          "required": false,
+          "doc": "Animation selection, skipping, and inventory space behavior."
+        },
+        {
+          "key": "hologram",
+          "type": {
+            "kind": "object",
+            "type": "HologramConfig"
+          },
+          "required": false,
+          "doc": "Hologram lines, animation, and temporary reward display."
+        },
+        {
+          "key": "ambient",
+          "type": {
+            "kind": "object",
+            "type": "AmbientEffectsConfig"
+          },
+          "required": false,
+          "doc": "Ambient particles displayed around placed crates."
+        },
+        {
+          "key": "effects",
+          "type": {
+            "kind": "object",
+            "type": "OpenEffectsConfig"
+          },
+          "required": false,
+          "doc": "Default effects played when this crate is opened."
+        },
+        {
+          "key": "tiers",
+          "type": {
+            "kind": "map",
+            "of": {
+              "kind": "object",
+              "type": "TierConfig"
+            }
+          },
+          "required": false,
+          "default": {},
+          "doc": "Per-rarity overrides for actions, sounds, particles, and fireworks."
+        },
+        {
+          "key": "lucky-chest",
+          "type": {
+            "kind": "object",
+            "type": "LuckyChestConfig"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Lucky chest spawn rules when `obtain` is `LUCKY_CHEST`."
+        },
+        {
+          "key": "menus",
+          "type": {
+            "kind": "object",
+            "type": "CrateMenusConfig"
+          },
+          "required": false,
+          "doc": "Custom XaliMenu menu bindings for previewing or multi-crate browsing."
+        },
+        {
+          "key": "multi-crate",
+          "type": {
+            "kind": "object",
+            "type": "MultiCrateConfig"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Multi-crate hub configuration."
+        },
+        {
+          "key": "rewards",
+          "type": {
+            "kind": "map",
+            "of": {
+              "kind": "object",
+              "type": "RewardConfig"
+            }
+          },
+          "required": false,
+          "default": {},
+          "doc": "All rewards belonging to this crate, keyed by reward id."
+        }
+      ]
+    },
+    "CrateDisplayConfig": {
+      "doc": "World display settings for a placed crate.",
+      "fields": [
+        {
+          "key": "kind",
+          "type": {
+            "kind": "enum",
+            "values": [
+              "BLOCK",
+              "ENTITY"
+            ]
+          },
+          "required": false,
+          "default": "BLOCK",
+          "doc": "Whether the placed crate is a block or an entity."
+        },
+        {
+          "key": "entity",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Entity type name when `kind` is `ENTITY` (e.g. `ARMOR_STAND`, `VILLAGER`, `ENDER_CRYSTAL`)."
+        },
+        {
+          "key": "entity-name",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional custom name tag displayed on the entity."
+        }
+      ]
+    },
+    "CrateItem": {
+      "doc": "Clean, typed item definition used for crate items, key items, reward display items, and bonus reward items. Supports vanilla materials as well as `head:<player>`, `texture:<base64>`, `nexo:<id>`, `itemsadder:<id>`, and `hdb:<id>`.",
+      "fields": [
+        {
+          "key": "material",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "chest",
+          "doc": "Material key or custom source prefix (`diamond`, `chest`, `head:Notch`, `texture:<b64>`, `nexo:<id>`, `itemsadder:<id>`, `hdb:<id>`)."
+        },
+        {
+          "key": "amount",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 1,
+          "doc": "Stack count, from 1 to 99."
+        },
+        {
+          "key": "name",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Custom display name. Supports legacy `&` codes, hex (`&#RRGGBB`), CMI gradients and MiniMessage."
+        },
+        {
+          "key": "lore",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Lore lines shown on the item."
+        },
+        {
+          "key": "glow",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "Adds an enchantment glint without showing visible enchantments."
+        },
+        {
+          "key": "damage",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 0,
+          "doc": "Durability damage applied to damageable items."
+        },
+        {
+          "key": "custom-model-data",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 0,
+          "doc": "Legacy integer custom model data (`0` omits it)."
+        },
+        {
+          "key": "item-model",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Resource pack item model key, e.g. `mypack:crate_key`."
+        },
+        {
+          "key": "unbreakable",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "Whether the item cannot lose durability."
+        },
+        {
+          "key": "enchantments",
+          "type": {
+            "kind": "map",
+            "of": {
+              "kind": "int"
+            }
+          },
+          "required": false,
+          "default": {},
+          "doc": "Map of enchantment key (e.g. `sharpness`, `unbreaking`) to level."
+        },
+        {
+          "key": "flags",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Bukkit item flags to hide attributes, enchants, potion effects, etc."
+        },
+        {
+          "key": "color",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Leather armor or potion tint as `#RRGGBB`."
+        },
+        {
+          "key": "potion-effects",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "PotionEffectSpec"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Custom potion effects applied to potions and tipped arrows."
+        },
+        {
+          "key": "base-color",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Banner base dye color (e.g. `WHITE`, `RED`)."
+        },
+        {
+          "key": "patterns",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "BannerPatternSpec"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Banner patterns rendered in order."
+        },
+        {
+          "key": "firework",
+          "type": {
+            "kind": "object",
+            "type": "FireworkConfig"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Firework star / rocket metadata if this item is a firework."
+        },
+        {
+          "key": "attributes",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "AttributeSpec"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Attribute modifiers applied to the item."
+        },
+        {
+          "key": "nbt",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional raw SNBT / component data preserved during SpecializedCrates migration."
+        }
+      ]
+    },
+    "CrateMenusConfig": {
+      "doc": "Custom XaliMenu menu bindings for a crate.",
+      "fields": [
+        {
+          "key": "preview",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "XaliMenu menu name opened to preview this crate's rewards (defaults to `menus.preview` from `config.yml`)."
+        },
+        {
+          "key": "multi-crate",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "XaliMenu menu name opened when this crate is a multi-crate (defaults to `menus.crates` from `config.yml`)."
+        }
+      ]
+    },
+    "FallbackRewardConfig": {
+      "doc": "Permission-gated fallback replacement for one-time or rank-locked rewards.",
+      "fields": [
+        {
+          "key": "permission",
+          "type": {
+            "kind": "string"
+          },
+          "required": true,
+          "doc": "Permission node that triggers the fallback reward when the winning player already has it."
+        },
+        {
+          "key": "reward",
+          "type": {
+            "kind": "string"
+          },
+          "required": true,
+          "doc": "Reward id in the same crate to grant instead."
+        },
+        {
+          "key": "bypass-permission",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "xalicrates.admin",
+          "doc": "Optional permission that bypasses the fallback (defaults to `xalicrates.admin`)."
+        }
+      ]
+    },
+    "FireworkConfig": {
+      "doc": "One firework launched on crate open or reward tier.",
+      "fields": [
+        {
+          "key": "colors",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [
+            "AQUA",
+            "WHITE"
+          ],
+          "doc": "Primary burst colors as `#RRGGBB` or Bukkit color names (e.g. `AQUA`, `#FF5500`)."
+        },
+        {
+          "key": "fade-colors",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Fade colors as `#RRGGBB` or Bukkit color names."
+        },
+        {
+          "key": "shape",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "STAR",
+          "doc": "Firework burst shape: `BALL`, `BALL_LARGE`, `STAR`, `BURST`, or `CREEPER`."
+        },
+        {
+          "key": "flicker",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "Whether the burst flickers."
+        },
+        {
+          "key": "trail",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "Whether the burst leaves a trail."
+        },
+        {
+          "key": "power",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 1,
+          "doc": "Rocket flight power (`0` explodes almost immediately, `1`–`3` flies higher)."
+        }
+      ]
+    },
+    "GiveItemConfig": {
+      "doc": "Controls giving the display item itself as part of a reward.",
+      "fields": [
+        {
+          "key": "enabled",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "Whether to give the reward's `display-item` to the player."
+        },
+        {
+          "key": "keep-name",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "Keep the `display-item`'s custom name on the given stack."
+        },
+        {
+          "key": "keep-lore",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "Keep the `display-item`'s lore on the given stack."
+        }
+      ]
+    },
+    "HologramAnimationConfig": {
+      "doc": "Animated text prefix cycling for crate holograms.",
+      "fields": [
+        {
+          "key": "type",
+          "type": {
+            "kind": "enum",
+            "values": [
+              "NONE",
+              "TEXT_CHANGE",
+              "MULTI_LINE_CHANGE"
+            ]
+          },
+          "required": false,
+          "default": "NONE",
+          "doc": "Animation style: `NONE`, `TEXT_CHANGE`, or `MULTI_LINE_CHANGE`."
+        },
+        {
+          "key": "interval",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 20,
+          "doc": "Ticks between animation frames."
+        },
+        {
+          "key": "prefixes",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Color/formatting prefixes cycled across the lines."
+        }
+      ]
+    },
+    "HologramConfig": {
+      "doc": "Native Paper TextDisplay hologram settings above a placed crate.",
+      "fields": [
+        {
+          "key": "enabled",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "Whether a hologram is displayed above placed instances of this crate."
+        },
+        {
+          "key": "lines",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Lines shown above the crate. Supports colors, MiniMessage and PlaceholderAPI."
+        },
+        {
+          "key": "offset",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.0,
+          "doc": "Vertical offset in blocks added to the global `holograms.offset`."
+        },
+        {
+          "key": "animation",
+          "type": {
+            "kind": "object",
+            "type": "HologramAnimationConfig"
+          },
+          "required": false,
+          "doc": "Optional animation cycling prefixes across hologram lines."
+        },
+        {
+          "key": "reward-line",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "&a+ &f%reward% &a+",
+          "doc": "Temporary line shown above the crate after a reward is won (blank disables it)."
+        },
+        {
+          "key": "reward-duration",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "3s",
+          "doc": "How long the temporary reward hologram stays visible (e.g. `3s`)."
+        },
+        {
+          "key": "reward-offset",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.3,
+          "doc": "Extra vertical offset for the temporary reward hologram."
+        }
+      ]
+    },
+    "KeyClickCommands": {
+      "doc": "Commands bound to clicks while holding a crate key. Prefix with `player:` to run as the player instead of console.",
+      "fields": [
+        {
+          "key": "left-click",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": []
+        },
+        {
+          "key": "right-click",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": []
+        },
+        {
+          "key": "shift-left-click",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": []
+        },
+        {
+          "key": "shift-right-click",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": []
+        }
+      ]
+    },
+    "KeyConfig": {
+      "doc": "Key item and interaction settings for a crate.",
+      "fields": [
+        {
+          "key": "required",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "Whether a physical or virtual key is required to open this crate."
+        },
+        {
+          "key": "item",
+          "type": {
+            "kind": "object",
+            "type": "CrateItem"
+          },
+          "required": false,
+          "doc": "Physical key item definition."
+        },
+        {
+          "key": "left-click-preview",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "Allows left-clicking in air or on a block while holding this key to open the reward preview menu."
+        },
+        {
+          "key": "commands",
+          "type": {
+            "kind": "object",
+            "type": "KeyClickCommands"
+          },
+          "required": false,
+          "doc": "Optional commands executed when clicking while holding this key."
+        }
+      ]
+    },
+    "LuckyChestConfig": {
+      "doc": "Settings for mining-spawned lucky chests (`obtain: LUCKY_CHEST`).",
+      "fields": [
+        {
+          "key": "chance",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 1.0,
+          "doc": "Spawn chance percentage per matching mined block (`0.0` to `100.0`, e.g. `1.0` = 1 in 100)."
+        },
+        {
+          "key": "block-filter",
+          "type": {
+            "kind": "enum",
+            "values": [
+              "WHITELIST",
+              "BLACKLIST"
+            ]
+          },
+          "required": false,
+          "default": "WHITELIST",
+          "doc": "Whether `blocks` is a `WHITELIST` or a `BLACKLIST`."
+        },
+        {
+          "key": "blocks",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Material names matched when mining (empty allows any block when WHITELIST)."
+        },
+        {
+          "key": "worlds",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "World names where this lucky chest may spawn (empty allows all worlds)."
+        },
+        {
+          "key": "require-permission",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "Whether players must hold `xalicrates.luckychest` (or `xalicrates.luckychest.<id>`) to trigger spawns."
+        },
+        {
+          "key": "despawn-after",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional per-crate despawn duration (e.g. `10m`); null inherits `lucky-chest.despawn-after` from `config.yml`."
+        },
+        {
+          "key": "give-item-instead",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Give the crate item directly instead of replacing the mined block; null inherits `config.yml`."
+        }
+      ]
+    },
+    "MultiCrateConfig": {
+      "doc": "Turns a crate into a multi-crate hub that opens a XaliMenu selection menu listing child crates.",
+      "fields": [
+        {
+          "key": "enabled",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "Whether this crate acts as a multi-crate selector instead of rolling rewards directly."
+        },
+        {
+          "key": "crates",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Ordered list of crate ids exposed by this multi-crate (empty lists all enabled non-multi crates)."
+        }
+      ]
+    },
+    "OpenEffectsConfig": {
+      "doc": "Effects triggered when a crate opens (or overridden per reward rarity tier).",
+      "fields": [
+        {
+          "key": "actions",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "CrateActionConfig"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Actions executed on open (messages, broadcasts, titles, actionbars, commands)."
+        },
+        {
+          "key": "sounds",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "SoundConfig"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Sounds played on open."
+        },
+        {
+          "key": "particles",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "ParticleConfig"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Particle bursts spawned on open."
+        },
+        {
+          "key": "fireworks",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "FireworkConfig"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Fireworks launched on open."
+        }
+      ]
+    },
+    "OpenedSelectedItemConfig": {
+      "doc": "Configuration for the `open-selected-reward` reveal stage in pick-a-chest animations.",
+      "fields": [
+        {
+          "key": "reveal-instantly",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "When true, selected slots immediately show the won reward without needing a click to reveal."
+        },
+        {
+          "key": "item",
+          "type": {
+            "kind": "object",
+            "type": "AnimationItem"
+          },
+          "required": false,
+          "doc": "Default mystery item shown before clicking to reveal (when `reveal-instantly` is false and rarity isn't matched)."
+        },
+        {
+          "key": "by-rarity",
+          "type": {
+            "kind": "map",
+            "of": {
+              "kind": "object",
+              "type": "AnimationItem"
+            }
+          },
+          "required": false,
+          "default": {},
+          "doc": "Optional per-rarity reveal items (keyed by reward rarity, e.g. `common`, `rare`, `legendary`)."
+        }
+      ]
+    },
+    "OpeningConfig": {
+      "doc": "Opening animation, skip, and inventory space behavior for a crate.",
+      "fields": [
+        {
+          "key": "animation",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "csgo",
+          "doc": "Animation id: built-in (`instant`, `open-chest`, `roulette`, `csgo`, `menu`, `enclose`, `discover`, `discover-eula`) or a custom animation file from `animations/`."
+        },
+        {
+          "key": "inventory-title",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "&8&l> &d%crate%",
+          "doc": "Inventory title used by inventory animations (supports `%crate%` and color codes)."
+        },
+        {
+          "key": "allow-skip",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "Whether closing the animation inventory early skips straight to the reward."
+        },
+        {
+          "key": "auto-close",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "Whether the animation inventory automatically closes after finishing."
+        },
+        {
+          "key": "required-slots",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": -1,
+          "doc": "Empty inventory slots required before opening (`-1` inherits `crates.required-slots` from `config.yml`)."
+        },
+        {
+          "key": "full-inventory",
+          "type": {
+            "kind": "enum",
+            "values": [
+              "DENY",
+              "DROP",
+              "REDEEM"
+            ]
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "How full inventories are handled (`DENY`, `DROP`, or `REDEEM` via XaliRedeem). Null inherits `config.yml`."
+        }
+      ]
+    },
+    "ParticleConfig": {
+      "doc": "One particle emitter attached to an ambient crate or an opening burst.",
+      "fields": [
+        {
+          "key": "type",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "flame",
+          "doc": "Minecraft particle key (e.g. `flame`, `enchant`, `dust`, `happy_villager`, `portal`)."
+        },
+        {
+          "key": "animation",
+          "type": {
+            "kind": "enum",
+            "values": [
+              "NONE",
+              "CIRCLE",
+              "SPIRAL",
+              "DOUBLE_SPIRAL",
+              "GROWING_SPIRAL",
+              "TILTED_RINGS",
+              "OFFSET_TILTED_RINGS"
+            ]
+          },
+          "required": false,
+          "default": "NONE",
+          "doc": "Geometric animation pattern around the crate."
+        },
+        {
+          "key": "amount",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 1,
+          "doc": "Particles spawned per tick / burst."
+        },
+        {
+          "key": "speed",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.05,
+          "doc": "Particle speed / extra parameter."
+        },
+        {
+          "key": "range-x",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.6,
+          "doc": "Spread along X, Y and Z (also used as radius for animated patterns)."
+        },
+        {
+          "key": "range-y",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.6
+        },
+        {
+          "key": "range-z",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.6
+        },
+        {
+          "key": "offset-x",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.0,
+          "doc": "Center offset relative to the crate block center."
+        },
+        {
+          "key": "offset-y",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.5
+        },
+        {
+          "key": "offset-z",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.0
+        },
+        {
+          "key": "color",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional hex color `#RRGGBB` for `dust` / colorable particles."
+        }
+      ]
+    },
+    "PotionEffectSpec": {
+      "doc": "One potion effect on an item or animation stage.",
+      "fields": [
+        {
+          "key": "effect",
+          "type": {
+            "kind": "string"
+          },
+          "required": true,
+          "doc": "Potion effect key (e.g. `speed`, `jump_boost`, `blindness`)."
+        },
+        {
+          "key": "duration",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 200,
+          "doc": "Effect duration in ticks (20 ticks = 1 second)."
+        },
+        {
+          "key": "amplifier",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 0,
+          "doc": "Zero-based amplifier (`0` is level I, `1` is level II)."
+        }
+      ]
+    },
+    "RepeatConfig": {
+      "doc": "Controls whether a reward can repeat within multi-reward openings.",
+      "fields": [
+        {
+          "key": "chance",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.0,
+          "doc": "Percent chance (`0`–`100`) that this reward may be rolled again in the same multi-reward opening."
+        },
+        {
+          "key": "max",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 1,
+          "doc": "Maximum number of times this reward may be won in a single multi-reward opening (`0` = never repeat)."
+        }
+      ]
+    },
+    "RewardConfig": {
+      "doc": "One reward entry inside a crate's `rewards` map.",
+      "fields": [
+        {
+          "key": "weight",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 10.0,
+          "doc": "Relative roll weight (higher = more likely; probability is `weight / sum(non-fallback weights)`)."
+        },
+        {
+          "key": "rarity",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "default": "default",
+          "doc": "Rarity tier id matching a key in the crate's `tiers` map (`default` uses the crate's base effects)."
+        },
+        {
+          "key": "guaranteed",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "If true, this reward is always granted in addition to the rolled reward(s)."
+        },
+        {
+          "key": "fallback-only",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "If true, this reward is excluded from random rolls and only granted via another reward's `fallback`."
+        },
+        {
+          "key": "display-item",
+          "type": {
+            "kind": "object",
+            "type": "CrateItem"
+          },
+          "required": false,
+          "doc": "Item shown in preview menus and animations (and optionally given via `give-item`)."
+        },
+        {
+          "key": "give-item",
+          "type": {
+            "kind": "object",
+            "type": "GiveItemConfig"
+          },
+          "required": false,
+          "doc": "Whether and how to give `display-item` to the player."
+        },
+        {
+          "key": "items",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "CrateItem"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Extra physical items granted in addition to `display-item` / `commands`."
+        },
+        {
+          "key": "commands",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Console commands executed without a leading slash. Supports `{player}`, `%player%`, `%reward%`, and `%amountX-Y%`."
+        },
+        {
+          "key": "player-commands",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Commands executed by the winning player as themselves."
+        },
+        {
+          "key": "linked-rewards",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Other reward ids in this crate that are also granted whenever this reward is won."
+        },
+        {
+          "key": "shulker-contents",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "string"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Reward ids whose display items are packed inside this reward when `display-item` is a shulker box."
+        },
+        {
+          "key": "fallback",
+          "type": {
+            "kind": "object",
+            "type": "FallbackRewardConfig"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional permission-based fallback replacement."
+        },
+        {
+          "key": "repeat",
+          "type": {
+            "kind": "object",
+            "type": "RepeatConfig"
+          },
+          "required": false,
+          "doc": "Controls duplicate prevention in multi-reward animations."
+        },
+        {
+          "key": "redeem",
+          "type": {
+            "kind": "object",
+            "type": "RewardRedeemConfig"
+          },
+          "required": false,
+          "doc": "Optional XaliRedeem routing (works when XaliRedeem is installed)."
+        }
+      ]
+    },
+    "RewardRedeemConfig": {
+      "doc": "Optional XaliRedeem integration settings on a specific reward.",
+      "fields": [
+        {
+          "key": "mode",
+          "type": {
+            "kind": "enum",
+            "values": [
+              "AUTO",
+              "ALWAYS",
+              "NEVER"
+            ]
+          },
+          "required": false,
+          "default": "AUTO",
+          "doc": "Delivery policy: `AUTO` (overflow only), `ALWAYS` (always store in XaliRedeem), or `NEVER` (drop overflow)."
+        },
+        {
+          "key": "voucher",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional static XaliRedeem voucher id to grant instead of storing an ad-hoc pending reward."
+        },
+        {
+          "key": "voucher-amount",
+          "type": {
+            "kind": "int"
+          },
+          "required": false,
+          "default": 1,
+          "doc": "How many of `voucher` to grant when `voucher` is set."
+        }
+      ]
+    },
+    "SoundConfig": {
+      "doc": "One sound played on crate open or reward tier.",
+      "fields": [
+        {
+          "key": "sound",
+          "type": {
+            "kind": "string"
+          },
+          "required": true,
+          "doc": "Minecraft sound key (e.g. `entity.player.levelup`, `block.chest.open`, `ui.button.click`)."
+        },
+        {
+          "key": "volume",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 1.0,
+          "doc": "Sound volume (`0.0` to `10.0`)."
+        },
+        {
+          "key": "pitch",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 1.0,
+          "doc": "Sound pitch (`0.0` to `2.0`)."
+        }
+      ]
+    },
+    "TierConfig": {
+      "doc": "Per-rarity visual and messaging overrides.",
+      "fields": [
+        {
+          "key": "display-name",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Optional formatted label for `%rarity%` placeholders (defaults to the tier key)."
+        },
+        {
+          "key": "override-defaults",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": true,
+          "doc": "When true, this tier's effects replace the crate's default `effects` instead of adding to them."
+        },
+        {
+          "key": "actions",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "CrateActionConfig"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Tier-specific actions."
+        },
+        {
+          "key": "sounds",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "SoundConfig"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Tier-specific sounds."
+        },
+        {
+          "key": "particles",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "ParticleConfig"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Tier-specific particle bursts."
+        },
+        {
+          "key": "fireworks",
+          "type": {
+            "kind": "list",
+            "of": {
+              "kind": "object",
+              "type": "FireworkConfig"
+            }
+          },
+          "required": false,
+          "default": [],
+          "doc": "Tier-specific fireworks."
+        }
+      ]
+    },
+    "UnselectedItemConfig": {
+      "doc": "Replacement item for slots that the player did NOT select during a selection stage.",
+      "fields": [
+        {
+          "key": "random-filler",
+          "type": {
+            "kind": "boolean"
+          },
+          "required": false,
+          "default": false,
+          "doc": "Use a random filler item from `fillers`."
+        },
+        {
+          "key": "filler",
+          "type": {
+            "kind": "string"
+          },
+          "required": false,
+          "nullable": true,
+          "doc": "Specific filler symbol from `fillers` (overrides `item` when set)."
+        },
+        {
+          "key": "item",
+          "type": {
+            "kind": "object",
+            "type": "AnimationItem"
+          },
+          "required": false,
+          "doc": "Explicit item shown in unselected slots (default AIR)."
+        }
+      ]
+    }
+  }
+}
