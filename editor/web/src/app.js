@@ -200,7 +200,7 @@ export async function boot() {
       title: 'Minecraft version (determines item models, textures, and pack overlays)',
       style: 'min-height:26px;padding:2px 6px;font-size:12px',
       onChange: (e) => { configureRenderer({ version: e.target.value }); render() },
-    }, ...PACK_FORMATS.map((f) => el('option', { value: f.version, selected: (renderEnv.assets?.versionBranch ?? '26.2') === f.branch }, `MC ${f.version}`)))
+    }, ...PACK_FORMATS.map((f) => el('option', { value: f.version, selected: (renderEnv.assets?.versionBranch ?? PACK_FORMATS[0].branch) === f.branch }, `MC ${f.version}`)))
 
     const header = el('header', { class: 'topbar' },
       el('div', { class: 'brand' }, el('span', { class: 'xali' }, 'XALI'), 'CRATES', el('span', { class: 'muted', style: 'font-weight:400;font-size:12px' }, `v${schema.version}`)),

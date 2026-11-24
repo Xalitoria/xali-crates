@@ -1,4 +1,4 @@
-// Minecraft Java Edition version & resource pack `pack_format` registry (1.8 through 26.2+).
+// Minecraft Java Edition version & resource pack `pack_format` registry (1.8 through 26.3+).
 // Used by the Asset Manager, Resource Pack overlay resolver, Font loader, and Item Model renderer so older
 // servers and packs render with the exact model format, texture paths, and overlays of their version.
 
@@ -8,7 +8,8 @@
  * `packFormat` is the primary resource pack format (major number; 1.21.9+ uses major.minor).
  */
 export const PACK_FORMATS = [
-  { version: '26.2',   min: [26, 2, 0],  packFormat: 84, branch: '26.2' },
+  { version: '26.3',   min: [26, 3, 0],  packFormat: 97, branch: '26.3' },
+  { version: '26.2',   min: [26, 2, 0],  packFormat: 90, branch: '26.2' },
   { version: '26.1.2', min: [26, 1, 2],  packFormat: 84, branch: '26.1.2' },
   { version: '26.1',   min: [26, 1, 0],  packFormat: 84, branch: '26.1' },
   { version: '1.21.11',min: [1, 21, 11], packFormat: 75, branch: '1.21.11' },
@@ -46,9 +47,9 @@ export const PACK_FORMATS = [
   { version: '1.8.9',  min: [1, 6, 1],   packFormat: 1,  branch: '1.8.9' },
 ]
 
-export const LATEST_VERSION = '26.2'
+export const LATEST_VERSION = '26.3'
 
-/** Parses a Minecraft version string (`"1.21.4"`, `"1.20.4-R0.1-SNAPSHOT"`, `"26.1.2"`) into `[major, minor, patch]`. */
+/** Parses a Minecraft version string (`"1.21.4"`, `"1.20.4-R0.1-SNAPSHOT"`, `"26.1.2"`, `"26.3"`) into `[major, minor, patch]`. */
 export function parseVersion(raw) {
   const text = String(raw ?? '').trim()
   const match = text.match(/(\d+)\.(\d+)(?:\.(\d+))?/)
@@ -73,7 +74,7 @@ export function resolveVersion(versionOrFormat) {
     return buildInfo(entry.version, versionOrFormat, entry.branch)
   }
   const parsed = parseVersion(versionOrFormat)
-  if (!parsed) return buildInfo(LATEST_VERSION, 84, LATEST_VERSION)
+  if (!parsed) return buildInfo(LATEST_VERSION, 97, LATEST_VERSION)
   const clean = parsed[2] > 0 ? `${parsed[0]}.${parsed[1]}.${parsed[2]}` : `${parsed[0]}.${parsed[1]}`
   const match = PACK_FORMATS.find((e) => cmpTuple(parsed, e.min) >= 0) ?? PACK_FORMATS[PACK_FORMATS.length - 1]
   // Exact known version uses its exact branch; unknown patch uses closest matching known branch.
@@ -88,6 +89,8 @@ function buildInfo(version, packFormat, branch) {
     branch,
     /** MC 1.21.4+ (format >= 46): `assets/<ns>/items/<name>.json` item model definitions. */
     hasItemDefinitions: packFormat >= 46,
+    /** MC 1.21.6+ (format >= 63): clips GUI items to the 16x16 slot unless `oversized_in_gui: true` is set. */
+    clipsNonOversizedInGui: packFormat >= 63,
     /** MC 1.9 – 1.21.3 (formats 2..45): `overrides` predicates inside `models/item/<name>.json`. */
     hasLegacyOverrides: packFormat < 46,
     /** MC 1.6 – 1.12.2 (formats 1..3): `textures/items/` and `textures/blocks/` plural folders. */

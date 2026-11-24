@@ -40,8 +40,9 @@ export function transformOf(display) {
  * @param {(key: string) => import('./assets.js').Texture|null} texture
  * @param {number} [scale]
  * @param {number} [align] grid alignment for bounds (set to `oversample` when downsampling)
+ * @param {boolean} [clipToSlot] clip output to the 16x16 slot (MC 1.21.6+ when `oversized_in_gui` is not true)
  */
-export function renderItem(layers, texture, scale = 3, align = 1) {
+export function renderItem(layers, texture, scale = 3, align = 1, clipToSlot = false) {
   const slotSize = 16 * scale
   const limitMin = -MAX_OVERFLOW_PX * scale
   const limitMax = (16 + MAX_OVERFLOW_PX) * scale
@@ -80,10 +81,10 @@ export function renderItem(layers, texture, scale = 3, align = 1) {
 
   const snapDown = (v) => Math.floor(v / align) * align
   const snapUp = (v) => Math.ceil(v / align) * align
-  const originX = Math.max(snapDown(limitMin), Math.min(0, snapDown(minVx)))
-  const originY = Math.max(snapDown(limitMin), Math.min(0, snapDown(minVy)))
-  const endX = Math.min(snapUp(limitMax), Math.max(slotSize, snapUp(maxVx)))
-  const endY = Math.min(snapUp(limitMax), Math.max(slotSize, snapUp(maxVy)))
+  const originX = clipToSlot ? 0 : Math.max(snapDown(limitMin), Math.min(0, snapDown(minVx)))
+  const originY = clipToSlot ? 0 : Math.max(snapDown(limitMin), Math.min(0, snapDown(minVy)))
+  const endX = clipToSlot ? slotSize : Math.min(snapUp(limitMax), Math.max(slotSize, snapUp(maxVx)))
+  const endY = clipToSlot ? slotSize : Math.min(snapUp(limitMax), Math.max(slotSize, snapUp(maxVy)))
 
   const width = Math.max(align, endX - originX)
   const height = Math.max(align, endY - originY)

@@ -124,7 +124,7 @@ export class ItemRenderer {
 
   async draw({ material, itemModel, state, glint, skin, banner, baseColor }, scale, smooth) {
     const oversample = smooth ? 4 : 1
-    const entries = await this.entries(material, itemModel, state)
+    const { entries, hasDefinition, oversizedInGui } = await this.resolveEntries(material, itemModel, state)
     const layers = []
     const needed = new Set()
     for (const entry of entries) {
@@ -147,8 +147,10 @@ export class ItemRenderer {
     if (layers.some((l) => l.quads.some((q) => q.texture === 'minecraft:entity/player/wide/steve')) && !textures.has('minecraft:entity/player/wide/steve')) {
       textures.set('minecraft:entity/player/wide/steve', await this.assets.texture('minecraft', 'entity/player/wide/steve'))
     }
+    // Minecraft 1.21.6+ (pack_format >= 63) clips items in GUIs unless the item definition sets `oversized_in_gui: true`.
     // Pass `oversample` as alignment so unclipped bounds divide cleanly in `downsample`.
-    const image = renderItem(layers, (key) => textures.get(key) ?? null, scale * oversample, oversample)
+    const clipToSlot = Boolean(this.assets.versionInfo?.clipsNonOversizedInGui && hasDefinition && !oversizedInGui)
+    const image = renderItem(layers, (key) => textures.get(key) ?? null, scale * oversample, oversample, clipToSlot)
     if (glint) {
       const sheen = await this.assets.texture('minecraft', 'misc/enchanted_glint_item')
       if (sheen) addGlint(image, sheen)
@@ -161,7 +163,7 @@ export class ItemRenderer {
    *   - Modern (`packFormat >= 46` / MC >= 1.21.4): checks `assets/<ns>/items/<path>.json` first, then falls back to `models/item/<path>.json` + legacy overrides.
    *   - Legacy (`packFormat < 46` / MC 1.8 – 1.21.3): checks `assets/<ns>/models/item/<path>.json` + legacy `overrides` first, with fallback to `items/<path>.json`.
    */
-  async entries(material, itemModel, state) {
+  async resolveEntries(material, itemModel, state) {
     const preferModern = this.assets.versionInfo ? this.assets.versionInfo.hasItemDefinitions : true
     const { ns, path } = split(itemModel ?? material)
 
@@ -172,7 +174,8 @@ export class ItemRenderer {
       const colormaps = {}
       if (text.includes('minecraft:grass')) colormaps.grass = await this.assets.texture('minecraft', 'colormap/grass')
       if (text.includes('minecraft:foliage')) colormaps.foliage = await this.assets.texture('minecraft', 'colormap/foliage')
-      return chooseModels(definition, { ...state, colormaps })
+      const entries = chooseModels(definition, { ...state, colormaps })
+      return { entries, hasDefinition: true, oversizedInGui: definition.oversized_in_gui === true }
     }
 
     const tryLegacy = async () => {
@@ -182,22 +185,26 @@ export class ItemRenderer {
       if (asItem) {
         const overridden = matchLegacyOverrides(asItem, state)
         const chosen = overridden ?? `${target.ns}:item/${target.path}`
-        return [{ model: chosen, tints: legacyTints(target.path, state) }]
+        return { entries: [{ model: chosen, tints: legacyTints(target.path, state) }], hasDefinition: false, oversizedInGui: false }
       }
       // Special built-in entities on legacy versions (player_head, chest, shulker_box, shield, banner)
       const special = legacySpecial(target.path)
-      if (special) return [special]
-      return [{ model: `${target.ns}:block/${target.path}`, tints: legacyTints(target.path, state) }]
+      if (special) return { entries: [special], hasDefinition: false, oversizedInGui: false }
+      return { entries: [{ model: `${target.ns}:block/${target.path}`, tints: legacyTints(target.path, state) }], hasDefinition: false, oversizedInGui: false }
     }
 
     if (preferModern) {
       const modern = await tryModern()
-      if (modern && modern.length > 0) return modern
+      if (modern && modern.entries.length > 0) return modern
       return tryLegacy()
     }
     const legacy = await tryLegacy()
-    if (legacy && legacy.length > 0) return legacy
-    return (await tryModern()) ?? []
+    if (legacy && legacy.entries.length > 0) return legacy
+    return (await tryModern()) ?? { entries: [], hasDefinition: false, oversizedInGui: false }
+  }
+
+  async entries(material, itemModel, state) {
+    return (await this.resolveEntries(material, itemModel, state)).entries
   }
 
   async layer(entry, skin = null, banner = [], baseColor = null) {

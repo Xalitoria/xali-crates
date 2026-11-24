@@ -44,6 +44,9 @@ function floats([r, g, b]) {
 export function chooseModels(definition, state) {
   const out = []
   walk(definition?.model ?? definition, state, out, 0)
+  if (definition?.oversized_in_gui === true) {
+    for (const entry of out) entry.oversizedInGui = true
+  }
   return out
 }
 
