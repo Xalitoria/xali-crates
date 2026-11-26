@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import mc.xalitoria.crates.paper.animation.AnimationManager
 import mc.xalitoria.crates.paper.api.CratesApiImpl
 import mc.xalitoria.crates.paper.command.CratesCommand
+import mc.xalitoria.crates.paper.data.config.ConfigFiles
 import mc.xalitoria.crates.paper.data.config.MainConfig
 import mc.xalitoria.crates.paper.data.config.MessageConfig
 import mc.xalitoria.crates.paper.data.constants.Permissions
@@ -360,16 +361,9 @@ class XaliCrates : JavaPlugin() {
         }
     }
 
-    private fun loadMainConfig(): YamlFile<MainConfig> {
-        // load() reads config.yml, writing the defaults on the first start; without it the file is never looked at.
-        val file = YamlFile(dataPath.resolve("config.yml"), MainConfig.serializer(), default = { MainConfig() }).also { it.load() }
-        file.data.validate()
-        return file
-    }
+    private fun loadMainConfig(): YamlFile<MainConfig> = ConfigFiles.main(dataPath)
 
-    private fun loadMessages(cfg: MainConfig): YamlFile<MessageConfig> =
-        YamlFile(dataPath.resolve("language/${cfg.language}.yml"), MessageConfig.serializer(), default = { MessageConfig() })
-            .also { it.load() }
+    private fun loadMessages(cfg: MainConfig): YamlFile<MessageConfig> = ConfigFiles.messages(dataPath, cfg.language)
 
     private fun registerPermissions() {
         val pm = server.pluginManager

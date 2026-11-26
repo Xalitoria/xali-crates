@@ -135,6 +135,7 @@ Requires PlaceholderAPI (`%xcrates_<key>%`):
 | `crates/api/test/AddonSurface.kt` | Public API has no Kotlin types or interface `$DefaultImpls`. |
 | `crates/paper/test/RewardRollerTest.kt` | Probabilities, weighted roll, repeat limits, fallback cycle guard, `%amountX-Y%`. |
 | `crates/paper/test/ValidationAndRegistryTest.kt` | Starter crate/animation round-trip and validation rules. |
+| `crates/paper/test/ConfigFilesTest.kt` | `config.yml` and `language/en-us.yml` are written on the first start and an edited language file is read back. |
 | `crates/paper/test/CratesDatabaseTest.kt` | Guarded virtual key/crate updates, concurrent consumption, transfers, cooldowns, history pruning. |
 | `crates/paper/test/SpecializedCratesMigratorTest.kt` | Full migration of crates, multi-crates, animations, menus, and flatfile data. |
 | `crates/paper/test/HologramTest.kt` | Provider choice (`AUTO` order, PacketEvents over ProtocolLib, fallback), tick period, host-safe names, the plugin's own colors per line, text-display metadata, and the packet hologram's viewers (range, edge margin, offline and forgotten players, text updates, removal). |
