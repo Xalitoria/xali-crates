@@ -8,24 +8,24 @@ import org.bukkit.OfflinePlayer
 import org.bukkit.entity.Player
 
 /**
- * PlaceholderAPI expansion `%xalicrates_...%` (matching and extending all SpecializedCrates placeholders).
+ * PlaceholderAPI expansion `%xcrates_...%` (matching and extending all SpecializedCrates placeholders).
  *
- * - `%xalicrates_placed%` — total placed crates
- * - `%xalicrates_virtual_keys_total%` — player's total virtual keys across all crates
- * - `%xalicrates_virtual_keys_<crate>%` — player's virtual keys for `<crate>`
- * - `%xalicrates_virtual_crates_<crate>%` — player's virtual crates for `<crate>`
- * - `%xalicrates_cooldown_<crate>%` — formatted remaining cooldown or `-`
- * - `%xalicrates_last_player_<crate>%` — last player to open `<crate>`
- * - `%xalicrates_last_reward_<crate>%` — last reward id won from `<crate>`
- * - `%xalicrates_last_reward_name_<crate>%` — last reward display name won from `<crate>`
- * - `%xalicrates_last_crate_opened%` — player's most recently opened crate
- * - `%xalicrates_last_crate_opened_rewards%` — rewards from player's most recent opening
- * - `%xalicrates_crate_name_<crate>%` — formatted crate display name (for XaliMenu titles/items)
- * - `%xalicrates_reward_name_<crate>_<reward>%` — formatted reward display name
- * - `%xalicrates_reward_chance_<crate>_<reward>%` — formatted reward chance percent
+ * - `%xcrates_placed%` — total placed crates
+ * - `%xcrates_virtual_keys_total%` — player's total virtual keys across all crates
+ * - `%xcrates_virtual_keys_<crate>%` — player's virtual keys for `<crate>`
+ * - `%xcrates_virtual_crates_<crate>%` — player's virtual crates for `<crate>`
+ * - `%xcrates_cooldown_<crate>%` — formatted remaining cooldown or `-`
+ * - `%xcrates_last_player_<crate>%` — last player to open `<crate>`
+ * - `%xcrates_last_reward_<crate>%` — last reward id won from `<crate>`
+ * - `%xcrates_last_reward_name_<crate>%` — last reward display name won from `<crate>`
+ * - `%xcrates_last_crate_opened%` — player's most recently opened crate
+ * - `%xcrates_last_crate_opened_rewards%` — rewards from player's most recent opening
+ * - `%xcrates_crate_name_<crate>%` — formatted crate display name (for XaliMenu titles/items)
+ * - `%xcrates_reward_name_<crate>_<reward>%` — formatted reward display name
+ * - `%xcrates_reward_chance_<crate>_<reward>%` — formatted reward chance percent
  */
 class CratesExpansion(private val plugin: XaliCrates) : PlaceholderExpansion() {
-    override fun getIdentifier() = "xalicrates"
+    override fun getIdentifier() = "xcrates"
     override fun getAuthor() = "audizian"
     override fun getVersion() = plugin.pluginMeta.version
     override fun persist() = true

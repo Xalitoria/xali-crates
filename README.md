@@ -125,7 +125,7 @@ Converts `Crates/*.crate`, `Crates/*.multicrate`, legacy `Rewards.yml`, `animati
 
 ## Placeholders
 
-Requires PlaceholderAPI (`%xalicrates_<key>%`):
+Requires PlaceholderAPI (`%xcrates_<key>%`):
 `keys_<crate>`, `physical_keys_<crate>`, `total_keys_<crate>`, `total_virtual_keys`, `crates_<crate>`, `cooldown_<crate>`, `crate_name_<crate>`, `reward_name_<crate>_<reward>`, `reward_chance_<crate>_<reward>`, `last_player_<crate>`, `last_reward_<crate>`, `lucky_enabled`.
 
 ## Tests

@@ -853,7 +853,7 @@ object SpecializedCratesMigrator {
               slots = [${(10 until (rows * 9 - 9)).filter { it % 9 in 1..7 }.joinToString(", ")}]
               item {
                 material = "{material}"
-                name = "%xalicrates_crate_name_{id}%"
+                name = "%xcrates_crate_name_{id}%"
                 lore = [
                   "&7Virtual Keys: &d{keys}",
                   "&aLeft-click &7to preview &8| &eRight-click &7to open",
@@ -885,7 +885,7 @@ object SpecializedCratesMigrator {
               cell = "x"
               item {
                 material = "{material}"
-                name = "%xalicrates_reward_name_${id}_{id}%"
+                name = "%xcrates_reward_name_${id}_{id}%"
                 lore = ["&7Rarity: &d{rarity}", "&7Chance: &e{chance}%"]
               }
             }
