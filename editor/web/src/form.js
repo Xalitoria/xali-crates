@@ -1,8 +1,9 @@
-// Schema-driven form renderer for any TypeDef in schema.json, with live Minecraft text previews and registry datalists.
+// Schema-driven form renderer for any TypeDef in schema.json, with live Minecraft bitmap text previews
+// (updating in-place on keystrokes without losing focus) and live server registry datalists.
 
 import { defaultForType, defaultObject, typeDef } from './schema.js'
 import { renderEnv } from './renderer.js'
-import { mcTextCanvas } from './shared/textpreview.js'
+import { renderMcTextCanvas } from './shared/textpreview.js'
 
 const MC_TEXT_KEYS = new Set(['name', 'display-name', 'inventory-title', 'entity-name', 'reward-line', 'value', 'lore', 'lines'])
 const DATALIST_MAP = {
@@ -18,7 +19,6 @@ export function el(tag, attrs = {}, ...children) {
   for (const [k, v] of Object.entries(attrs)) {
     if (v === null || v === undefined || v === false) continue
     if (k === 'class') node.className = v
-    else if (k === 'html') node.innerHTML = v
     else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2).toLowerCase(), v)
     else if (k === 'checked' || k === 'disabled' || k === 'selected' || k === 'open') node[k] = Boolean(v)
     else if (k === 'value') node.value = v
@@ -46,18 +46,31 @@ export function syncRegistryDatalists(registries) {
       dl.id = id
       document.body.append(dl)
     }
-    dl.innerHTML = ''
-    for (const item of items) {
+    const opts = items.map((item) => {
       const opt = document.createElement('option')
       opt.value = item
-      dl.append(opt)
-    }
+      return opt
+    })
+    dl.replaceChildren(...opts)
   }
+}
+
+function attachLivePreview(input, initialValue, color) {
+  const box = el('div', { class: 'mc-preview', hidden: !initialValue })
+  const update = (text) => {
+    const val = String(text ?? '')
+    box.hidden = !val
+    if (val) renderMcTextCanvas(box, renderEnv.text, val, { scale: 2, color, shadow: true })
+    else box.replaceChildren()
+  }
+  if (initialValue) update(initialValue)
+  input.addEventListener('input', () => update(input.value))
+  return box
 }
 
 /**
  * Renders a schema-driven object form for `typeName`.
- * `onChange(nextObject)` is called whenever any field mutates.
+ * `onChange(nextObject)` is called whenever any field commits a change.
  */
 export function renderObjectForm({ schema, typeName, value, onChange, readOnly = false, excludeKeys = [], onlyKeys = null }) {
   const def = typeDef(schema, typeName)
@@ -162,9 +175,10 @@ export function renderObjectForm({ schema, typeName, value, onChange, readOnly =
       }))
     } else if (field.type.kind === 'string') {
       const listId = typeName === 'ParticleConfig' && field.key === 'type' ? 'reg-particles' : DATALIST_MAP[field.key]
+      const initial = fieldVal ?? (field.nullable ? '' : (field.default ?? ''))
       const input = el('input', {
         type: 'text',
-        value: fieldVal ?? (field.nullable ? '' : (field.default ?? '')),
+        value: initial,
         placeholder: field.nullable ? '(not set)' : '',
         list: listId,
         disabled: readOnly,
@@ -174,12 +188,8 @@ export function renderObjectForm({ schema, typeName, value, onChange, readOnly =
         },
       })
       ctrl.append(input)
-      if (MC_TEXT_KEYS.has(field.key) && fieldVal) {
-        ctrl.append(el('div', { class: 'mc-preview' }, mcTextCanvas(renderEnv.text, fieldVal, {
-          scale: 2,
-          color: field.key === 'lore' ? '#aa00aa' : '#ffffff',
-          shadow: true,
-        })))
+      if (MC_TEXT_KEYS.has(field.key)) {
+        ctrl.append(attachLivePreview(input, initial, field.key === 'lore' ? '#aa00aa' : '#ffffff'))
       }
     } else if (field.type.kind === 'list') {
       ctrl.append(renderListEditor({
@@ -240,22 +250,30 @@ function renderListEditor({ schema, fieldKey, itemType, items, readOnly, onChang
       }))
     } else {
       const wrap = el('div', { style: 'display:flex;flex-direction:column;gap:3px' })
-      wrap.append(el('input', {
+      const input = el('input', {
         type: 'text',
         value: item ?? '',
         disabled: readOnly,
         onChange: (e) => updateAt(e.target.value),
-      }))
-      if (MC_TEXT_KEYS.has(fieldKey) && item) {
-        wrap.append(el('div', { class: 'mc-preview' }, mcTextCanvas(renderEnv.text, item, {
-          scale: 2,
-          color: fieldKey === 'lore' ? '#aa00aa' : '#ffffff',
-          shadow: true,
-        })))
+      })
+      wrap.append(input)
+      if (MC_TEXT_KEYS.has(fieldKey)) {
+        wrap.append(attachLivePreview(input, item ?? '', fieldKey === 'lore' ? '#aa00aa' : '#ffffff'))
       }
       row.append(wrap)
     }
     if (!readOnly) {
+      if (idx > 0) {
+        row.append(el('button', {
+          class: 'icon',
+          title: 'Move up',
+          onClick: () => {
+            const copy = items.slice()
+            ;[copy[idx - 1], copy[idx]] = [copy[idx], copy[idx - 1]]
+            onChange(copy)
+          },
+        }, '↑'))
+      }
       row.append(el('button', {
         class: 'icon danger',
         title: 'Remove',

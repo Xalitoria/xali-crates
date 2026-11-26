@@ -16,7 +16,7 @@ subprojects {
         "editor" -> "com.xalitoria.crates"
         else -> error("No group for $path")
     }
-    version = "0.1.0"
+    version = "0.2.0"
 }
 
 tasks.named("build") {
@@ -35,8 +35,8 @@ paper {
     foliaSupported = true
     relocateSources = true
     serverDependencies {
-        // XaliMenu is required for custom crate preview, virtual crate, key and history menus.
-        register("XaliMenu") { load = RelativeLoad.BEFORE }
+        // Hard dependency: XaliMenu renders all player-facing crate, preview, key, and history menus.
+        register("XaliMenu") { load = RelativeLoad.BEFORE; required = true }
         register("PlaceholderAPI") { load = RelativeLoad.BEFORE; required = false }
         // Optional full-inventory overflow and ad-hoc reward storage through XaliRedeem.
         register("XaliRedeem") { load = RelativeLoad.BEFORE; required = false }
@@ -45,5 +45,11 @@ paper {
         register("ItemsAdder") { load = RelativeLoad.BEFORE; required = false }
         register("Nexo") { load = RelativeLoad.BEFORE; required = false }
         register("HeadDatabase") { load = RelativeLoad.BEFORE; required = false }
+        // Crate holograms go to the first of these that is installed (config.yml `holograms.provider`).
+        register("DecentHolograms") { load = RelativeLoad.BEFORE; required = false }
+        register("CMI") { load = RelativeLoad.BEFORE; required = false }
+        register("HolographicDisplays") { load = RelativeLoad.BEFORE; required = false }
+        register("packetevents") { load = RelativeLoad.BEFORE; required = false }
+        register("ProtocolLib") { load = RelativeLoad.BEFORE; required = false }
     }
 }

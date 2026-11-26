@@ -11,6 +11,7 @@
 - [Configuration](#configuration)
 - [XaliMenu integration](#xalimenu-integration)
 - [XaliRedeem integration](#xaliredeem-integration)
+- [Holograms](#holograms)
 - [Migration from SpecializedCrates](#migration-from-specializedcrates)
 - [Placeholders](#placeholders)
 - [Tests](#tests)
@@ -21,13 +22,13 @@
 | Part | Group / Package | Role |
 |---|---|---|
 | `crates/api` | `net.xalitoria.crates` | Java/Bukkit-only public API (`XaliCratesApi`, `CrateInfo`, `RewardInfo`, `PlacedCrateInfo`, and Bukkit events). Enforced by `AddonSurface`. |
-| `crates/paper` | `mc.xalitoria.crates.paper` | Paper/Folia plugin: database repositories, weighted roller, animations, native `TextDisplay` holograms, non-editable admin GUI, web editor server/relay, and SpecializedCrates migrator. |
+| `crates/paper` | `mc.xalitoria.crates.paper` | Paper/Folia plugin: database repositories, weighted roller, animations, holograms (through a hologram plugin, packets, or native `TextDisplay`), non-editable admin GUI, web editor server/relay, and SpecializedCrates migrator. |
 | `crates/editor` | `com.xalitoria.crates.editor` | Schema generator (`:crates:editor:schema` -> `web/schema.json`) and zero-build static web editor sharing `editor-core`. |
 
 ## Dependencies
 
 - **Required**: `XaliMenu` — renders all player-facing menus (virtual crates hub, multi-crates, reward previews, virtual keys, and opening history) from customizable `.conf` files. Admin in-game crate editor screens (`gui/editor/`) are hardcoded non-editable Bukkit inventories owned by XaliCrates.
-- **Optional**: `XaliRedeem` (stores overflow items and `redeem.mode: ALWAYS` dynamic rewards as pending rewards without static voucher configs), `Vault` / `VaultUnlocked`, `PlaceholderAPI`, `Nexo`, `ItemsAdder`, `HeadDatabase`.
+- **Optional**: `XaliRedeem` (stores overflow items and `redeem.mode: ALWAYS` dynamic rewards as pending rewards without static voucher configs), `Vault` / `VaultUnlocked`, `PlaceholderAPI`, `Nexo`, `ItemsAdder`, `HeadDatabase`. For [holograms](#holograms): `DecentHolograms`, `CMI`, `HolographicDisplays`, `packetevents`, `ProtocolLib`.
 
 ## Commands
 
@@ -72,7 +73,7 @@ Standalone commands: `/xkeys` (also `/keys`, `/cratekeys`, `/xcratekeys`, `/crat
 
 ## Configuration
 
-- `plugins/XaliCrates/config.yml` — global settings (`database`, `keys`, `crates`, `lucky-chest`, `virtual`, `menus`, `redeem`, `holograms`, `particles`, `history`, `animations`, `editor`).
+- `plugins/XaliCrates/config.yml` — global settings, written with its defaults on the first start (`database`, `keys`, `crates`, `lucky-chest`, `virtual`, `menus`, `redeem`, `holograms`, `particles`, `history`, `animations`, `editor`).
 - `plugins/XaliCrates/language/<lang>.yml` — all player messages.
 - `plugins/XaliCrates/crates/<id>.yml` — one typed YAML file per crate or multi-crate.
 - `plugins/XaliCrates/animations/<id>.yml` — custom stage-based inventory animations (9-column grids per stage).
@@ -92,6 +93,26 @@ Registered XaliMenu extensions:
 When `XaliRedeem` is installed and `redeem.enabled: true`:
 - Overflow items (when `full-inventory: REDEEM`) are stored via `XaliRedeemApi.giveReward` as dynamic pending rewards that do not need static voucher configs in `XaliRedeem`.
 - Individual rewards can set `redeem.mode: ALWAYS` to always deliver into `/redeem`, or `redeem.voucher: <id>` to grant a configured XaliRedeem voucher.
+
+## Holograms
+
+A crate placed in a world can show a hologram (`hologram.lines`, an `animation` that cycles color prefixes, and a `reward-line` shown for `reward-duration` after a win). Where it is drawn is `holograms.provider` in `config.yml`:
+
+| Value | Draws the hologram with | Notes |
+|---|---|---|
+| `AUTO` | The first installed of the rows below, in this order, and `NATIVE` when none is | The default. |
+| `DECENTHOLOGRAMS` | DecentHolograms | One armor-stand line per hologram line. Not saved to DecentHolograms' files. |
+| `CMI` | CMI | CMI saves the holograms it holds, so each one is removed when XaliCrates stops, and leftovers (`xalicrates_*`) are removed at start. |
+| `HOLOGRAPHICDISPLAYS` | HolographicDisplays (API 3) | For servers that are on a version the newer hosts do not support. |
+| `PACKETEVENTS` | PacketEvents | Preferred of the two packet libraries. A fake `TextDisplay` that exists only in packets, sent to the players near it. |
+| `PROTOCOLLIB` | ProtocolLib | The same packets, through ProtocolLib. |
+| `NATIVE` | Paper's `TextDisplay` entity | Needs no plugin. Exists only while its chunk is loaded, and is made again when the chunk loads. |
+
+A named provider that is not installed (or fails to start) falls back to `AUTO` with a warning. `holograms.view-range` (blocks) and `holograms.refresh-ticks` are for `PACKETEVENTS`, `PROTOCOLLIB` and `NATIVE`; a hologram plugin uses its own range. `holograms.offset` and `hologram.offset` lift a hologram in every provider; a hologram plugin stacks its lines a little differently from a text display, so raise or lower it there if it sits too high or low.
+
+**Colors** are only the ones XaliCrates reads itself: `&` codes, `&#rrggbb` and MiniMessage tags, each line on its own (a color never runs into the next line). A hologram plugin is given the line in the legacy `§` form with `§x§r§r§g§g§b§b` hex, which they all pass through untouched. Parsing every color format a server might have is XaliChat's job (`protocolor`), not this plugin's.
+
+A packet hologram is shown to a player within `view-range` and hidden four blocks past it (so the edge does not blink). It is sent again after a world change and a respawn, and a restart or a crash leaves nothing in a world to clean up.
 
 ## Migration from SpecializedCrates
 
@@ -116,6 +137,8 @@ Requires PlaceholderAPI (`%xalicrates_<key>%`):
 | `crates/paper/test/ValidationAndRegistryTest.kt` | Starter crate/animation round-trip and validation rules. |
 | `crates/paper/test/CratesDatabaseTest.kt` | Guarded virtual key/crate updates, concurrent consumption, transfers, cooldowns, history pruning. |
 | `crates/paper/test/SpecializedCratesMigratorTest.kt` | Full migration of crates, multi-crates, animations, menus, and flatfile data. |
+| `crates/paper/test/HologramTest.kt` | Provider choice (`AUTO` order, PacketEvents over ProtocolLib, fallback), tick period, host-safe names, the plugin's own colors per line, text-display metadata, and the packet hologram's viewers (range, edge margin, offline and forgotten players, text updates, removal). |
+| `crates/paper/test/EditorSecurityTest.kt` | Web editor IP checks, save authorization, privileged-command scan, byte ranges, skin addresses, and session limits. |
 | `crates/paper/test/RelayCryptoTest.kt` | PBKDF2 derivation and AES-256-GCM relay frame sealing/opening. |
 | `crates/editor/test/SchemaTest.kt` | Ensures `crates/editor/web/schema.json` matches the Kotlin model. |
 | `crates/editor/web/test/` | Node.js tests for YAML round-trip, validation, store undo/redo, relay crypto, and schema. |

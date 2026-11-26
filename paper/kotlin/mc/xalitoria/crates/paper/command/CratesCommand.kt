@@ -312,6 +312,10 @@ class CratesCommand(private val plugin: XaliCrates) {
         .requires { it.sender.hasPermission(Permissions.ADMIN_EDIT) }
         .executes { exec(it) { sender -> listPendingEdits(sender) } }
         .then(
+            Commands.literal("inspect")
+                .then(amountArg("id").executes { exec(it) { sender -> inspectPendingEdit(sender, num(it, "id")) } }),
+        )
+        .then(
             Commands.literal("apply")
                 .then(amountArg("id").executes { exec(it) { sender -> applyPendingEdit(sender, num(it, "id")) } }),
         )
@@ -682,15 +686,23 @@ class CratesCommand(private val plugin: XaliCrates) {
             sender send msg.editor.pendingNone
             return
         }
-        sender send "{#a0a>}&lXALI{#fff<}&f&lCRATES &7> &dPending Shared Edits"
+        sender send "{#a0a>}&lXALI{#fff<}&f&lCRATES &7> &dPending Edits"
         for (edit in edits) {
             val target = "${edit.kind.name.lowercase()}/${edit.name}"
             val warnNote = if (edit.problems.isEmpty()) "&a0 issues" else "&e${edit.problems.size} warning(s)"
-            val comp = "&d#${edit.id} &f$target &7from &f${edit.from} &8($warnNote&8) ".toComponent()
+            val privNote = if (edit.privileged.isEmpty()) "" else " &c[${edit.privileged.size} console cmd(s)]"
+            val ipNote = edit.clientIp?.let { " &8($it)" } ?: ""
+            val comp = "&d#${edit.id} &f$target &7from &f${edit.from}$ipNote &8(${edit.reason}, $warnNote&8)$privNote ".toComponent()
+                .append(
+                    "&b[Inspect]".toComponent()
+                        .clickEvent(ClickEvent.runCommand("/$label edits inspect ${edit.id}"))
+                        .hoverEvent(HoverEvent.showText("&bClick to inspect #${edit.id}".toComponent())),
+                )
+                .append(" ".toComponent())
                 .append(
                     "&a[Apply]".toComponent()
                         .clickEvent(ClickEvent.runCommand("/$label edits apply ${edit.id}"))
-                        .hoverEvent(HoverEvent.showText("&aClick to apply #$edit.id".toComponent())),
+                        .hoverEvent(HoverEvent.showText("&aClick to apply #${edit.id}".toComponent())),
                 )
                 .append(" ".toComponent())
                 .append(
@@ -699,6 +711,28 @@ class CratesCommand(private val plugin: XaliCrates) {
                         .hoverEvent(HoverEvent.showText("&cClick to discard #${edit.id}".toComponent())),
                 )
             sender.sendMessage(comp)
+        }
+    }
+
+    private fun inspectPendingEdit(sender: CommandSender, id: Int) {
+        val edit = plugin.pendingEdits.peek(id) ?: run {
+            sender fail "No pending edit #$id."
+            return
+        }
+        val target = "${edit.kind.name.lowercase()}/${edit.name}"
+        sender send "{#a0a>}&lXALI{#fff<}&f&lCRATES &7> &dPending Edit #${edit.id} &7($target)"
+        sender send "&7From: &f${edit.from} &8| &7IP: &f${edit.clientIp ?: "unknown"} &8| &7Reason: &e${edit.reason}"
+        if (edit.privileged.isEmpty()) {
+            sender send "&aNo console commands in this edit."
+        } else {
+            sender send "&cPrivileged console commands (${edit.privileged.size}):"
+            for (cmd in edit.privileged) {
+                sender send "  &c- &f$cmd"
+            }
+        }
+        if (edit.problems.isNotEmpty()) {
+            sender send "&eWarnings (${edit.problems.size}):"
+            for (p in edit.problems.take(10)) sender send "  &e- &7$p"
         }
     }
 

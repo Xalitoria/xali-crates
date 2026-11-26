@@ -26,6 +26,7 @@ import org.bukkit.event.inventory.InventoryClickEvent
 import org.bukkit.event.inventory.InventoryCloseEvent
 import org.bukkit.event.inventory.InventoryDragEvent
 import org.bukkit.event.player.PlayerInteractEntityEvent
+import org.bukkit.event.world.ChunkLoadEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
@@ -35,6 +36,12 @@ import org.bukkit.inventory.EquipmentSlot
  * All Folia-safe world, inventory, chat and connection listeners for XaliCrates.
  */
 class CrateListeners(private val plugin: XaliCrates) : Listener {
+
+    @EventHandler
+    fun onChunkLoad(event: ChunkLoadEvent) {
+        val chunk = event.chunk
+        plugin.placed.onChunkLoad(chunk.world.name, chunk.x, chunk.z)
+    }
 
     @EventHandler
     fun onJoin(event: PlayerJoinEvent) {

@@ -33,6 +33,7 @@ import mc.xalitoria.crates.paper.external.EconomyHook
 import mc.xalitoria.crates.paper.external.MenuHook
 import mc.xalitoria.crates.paper.external.RedeemHook
 import mc.xalitoria.crates.paper.gui.editor.CrateEditorManager
+import mc.xalitoria.crates.paper.hologram.HologramService
 import mc.xalitoria.crates.paper.listener.CrateListeners
 import mc.xalitoria.crates.paper.service.CrateOpenService
 import mc.xalitoria.crates.paper.service.CrateRegistry
@@ -89,6 +90,9 @@ class XaliCrates : JavaPlugin() {
     lateinit var keys: KeyService
         private set
 
+    lateinit var holograms: HologramService
+        private set
+
     lateinit var placed: PlacedCrateService
         private set
 
@@ -138,11 +142,6 @@ class XaliCrates : JavaPlugin() {
         scope = coroutineScope()
 
         val pm = server.pluginManager
-        if (!pm.isPluginEnabled("XaliMenu")) {
-            logger.severe("XaliMenu is required for XaliCrates player menus; disabling.")
-            pm.disablePlugin(this)
-            return
-        }
 
         try {
             config = loadMainConfig()
@@ -167,6 +166,7 @@ class XaliCrates : JavaPlugin() {
         items = ItemFactory(this)
         effects = EffectPlayer(this)
         keys = KeyService(this)
+        holograms = HologramService(this).also { it.open() }
         placed = PlacedCrateService(this).also { it.particlesEnabled = config.data.particles.enabled }
         luckyChests = LuckyChestService(this)
         openService = CrateOpenService(this)
@@ -239,6 +239,7 @@ class XaliCrates : JavaPlugin() {
         if (::editorServer.isInitialized) editorServer.stop()
         if (::animations.isInitialized) animations.shutdown()
         if (::placed.isInitialized) placed.shutdown()
+        if (::holograms.isInitialized) holograms.close()
         if (::scope.isInitialized) scope.cancel("XaliCrates disabling")
         DatabaseManager.close()
         if (instance === this) instance = null
@@ -252,6 +253,8 @@ class XaliCrates : JavaPlugin() {
         debugEnabled = config.data.debug
         placed.particlesEnabled = config.data.particles.enabled
         loadCatalog()
+        placed.removeVisuals()
+        holograms.open()
         placed.rebuildVisuals()
         if (config.data.editor.enabled && !editorServer.running) {
             editorServer.start()?.let { err -> logger.warning("Could not start web editor HTTP endpoint: $err") }
@@ -293,6 +296,9 @@ class XaliCrates : JavaPlugin() {
         val settings = config.data.editor
         val cleanCrate = initialCrate?.lowercase()?.takeIf { it in crates }
         val owner = sender.name
+        val player = sender as? org.bukkit.entity.Player
+        val ownerIp = player?.let { runCatching { it.address?.address?.hostAddress }.getOrNull() }
+        val ownerUuid = player?.uniqueId
 
         if (settings.enabled && editorServer.running) {
             val token = editorSessions.create(
@@ -301,6 +307,8 @@ class XaliCrates : JavaPlugin() {
                 readOnly = readOnly,
                 autoReload = autoReload,
                 initialCrate = cleanCrate,
+                ownerIp = ownerIp,
+                ownerUuid = ownerUuid,
             )
             val apiUrl = settings.publicUrl.trim().trimEnd('/').ifEmpty { "http://${settings.host}:${settings.port}" }
             val site = settings.site.trimEnd('/')
@@ -320,6 +328,8 @@ class XaliCrates : JavaPlugin() {
                 readOnly = readOnly,
                 shared = shared,
                 autoReload = autoReload,
+                ownerIp = ownerIp,
+                ownerUuid = ownerUuid,
             )
             runTask {
                 when (result) {
@@ -351,13 +361,15 @@ class XaliCrates : JavaPlugin() {
     }
 
     private fun loadMainConfig(): YamlFile<MainConfig> {
-        val file = YamlFile(dataPath.resolve("config.yml"), MainConfig.serializer(), default = { MainConfig() })
+        // load() reads config.yml, writing the defaults on the first start; without it the file is never looked at.
+        val file = YamlFile(dataPath.resolve("config.yml"), MainConfig.serializer(), default = { MainConfig() }).also { it.load() }
         file.data.validate()
         return file
     }
 
     private fun loadMessages(cfg: MainConfig): YamlFile<MessageConfig> =
         YamlFile(dataPath.resolve("language/${cfg.language}.yml"), MessageConfig.serializer(), default = { MessageConfig() })
+            .also { it.load() }
 
     private fun registerPermissions() {
         val pm = server.pluginManager

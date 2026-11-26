@@ -512,7 +512,7 @@ class CrateOpenService(private val plugin: XaliCrates) {
                         redeemHook != null &&
                         plugin.config.data.redeem.enabled
                     if (allowRedeem) {
-                        redeemHook!!.storeOverflow(
+                        redeemHook.storeOverflow(
                             player = player.uniqueId,
                             crateId = crateId,
                             crateName = crateDisplay,

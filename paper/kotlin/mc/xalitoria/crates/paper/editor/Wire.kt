@@ -32,7 +32,12 @@ internal object Wire {
 
 @Serializable internal data class SavedReply(val problems: List<ProblemDto>, val reloaded: Boolean)
 
-@Serializable internal data class HeldReply(val problems: List<ProblemDto>, val held: Boolean, val id: Int)
+@Serializable internal data class HeldReply(
+    val problems: List<ProblemDto>,
+    val held: Boolean,
+    val id: Int,
+    val reason: String? = null,
+)
 
 @Serializable internal data class InfoReply(
     val plugin: String,
@@ -47,8 +52,14 @@ internal object Wire {
     val animations: List<String>,
     val builtinAnimations: List<String>,
     val pack: Boolean = false,
+    val packSize: Long? = null,
+    val packHash: String? = null,
+    val packUrl: String? = null,
     val redeemAvailable: Boolean = false,
     val economyAvailable: Boolean = false,
+    val ipVerified: Boolean = true,
+    val ipNotice: String? = null,
+    val clientName: String? = null,
 )
 
 @Serializable internal data class GlyphDto(val name: String, val char: String, val plugin: String, val font: String? = null)
@@ -73,7 +84,12 @@ internal object Wire {
 
 @Serializable internal data class RelaySession(val id: String, val secret: String, val ws: Boolean = false)
 
-@Serializable internal data class RelayCall(val id: String? = null, val data: String? = null, val fetch: Boolean = false)
+@Serializable internal data class RelayCall(
+    val id: String? = null,
+    val data: String? = null,
+    val fetch: Boolean = false,
+    val ip: String? = null,
+)
 
 @Serializable internal data class RelayWsAnswer(val id: String, val data: String)
 
@@ -84,6 +100,7 @@ internal object Wire {
     val path: String? = null,
     val body: String? = null,
     val from: String? = null,
+    val range: String? = null,
 )
 
 @Serializable internal data class RelayReply(

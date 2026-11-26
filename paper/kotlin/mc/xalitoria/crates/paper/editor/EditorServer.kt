@@ -5,7 +5,9 @@ import com.sun.net.httpserver.HttpServer
 import mc.xalitoria.crates.paper.XaliCrates
 import java.net.InetSocketAddress
 import java.net.URI
+import java.nio.file.Files
 import java.util.concurrent.Executors
+import kotlin.io.path.fileSize
 
 /**
  * Direct JDK HTTP endpoint for the web editor when `editor.enabled` is true in `config.yml`.
@@ -44,6 +46,7 @@ internal class EditorServer(
     private fun handle(exchange: HttpExchange) {
         try {
             val origin = exchange.requestHeaders.getFirst("Origin")
+            exchange.responseHeaders.add("Access-Control-Expose-Headers", "Content-Range")
             if (origin != null && !allowed(origin)) {
                 return reply(exchange, 403, Wire.write(ErrorReply("Origin is not allowed to call this editor endpoint")))
             }
@@ -53,19 +56,28 @@ internal class EditorServer(
             }
             if (exchange.requestMethod == "OPTIONS") {
                 exchange.responseHeaders.add("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS")
-                exchange.responseHeaders.add("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Editor-From")
-                exchange.responseHeaders.add("Access-Control-Allow-Private-Network", "true")
+                exchange.responseHeaders.add("Access-Control-Allow-Headers", "Authorization, Content-Type, Range, X-Editor-From")
+                if (exchange.requestHeaders.getFirst("Access-Control-Request-Private-Network").equals("true", ignoreCase = true)) {
+                    exchange.responseHeaders.add("Access-Control-Allow-Private-Network", "true")
+                }
                 exchange.responseHeaders.add("Access-Control-Max-Age", "600")
                 return reply(exchange, 204, null)
             }
 
-            val token = exchange.requestHeaders.getFirst("Authorization")?.removePrefix("Bearer ")?.trim()
+            val auth = exchange.requestHeaders.getFirst("Authorization")
+            val token = auth?.takeIf { it.startsWith("Bearer ") }?.removePrefix("Bearer ")?.trim()
             val session = sessions.session(token) ?: return reply(exchange, 401, Wire.write(ErrorReply("The editor link has expired")))
             val bytes = exchange.requestBody.readNBytes(EditorApi.MAX_BODY + 1)
             if (bytes.size > EditorApi.MAX_BODY) return reply(exchange, 413, Wire.write(ErrorReply("Request body too large")))
 
             val path = exchange.requestURI.path.removePrefix("/v1")
             val from = if (session.shared) EditorRelay.clean(exchange.requestHeaders.getFirst("X-Editor-From") ?: session.owner) else session.owner
+            val clientIp = EditorGuard.resolveClientIp(
+                remoteIp = exchange.remoteAddress?.address?.hostAddress,
+                cfConnectingIp = exchange.requestHeaders.getFirst("CF-Connecting-IP"),
+                forwardedFor = exchange.requestHeaders.getFirst("X-Forwarded-For"),
+                trustProxy = plugin.config.data.editor.trustProxy,
+            )
             val caller = EditorApi.Caller(
                 owner = session.owner,
                 shared = session.shared,
@@ -73,17 +85,41 @@ internal class EditorServer(
                 readOnly = session.readOnly,
                 autoReload = session.autoReload,
                 initialCrate = session.initialCrate,
+                ownerIp = session.ownerIp,
+                ownerUuid = session.ownerUuid,
+                clientIp = clientIp,
             )
-            val result = api.handle(EditorApi.Call(exchange.requestMethod, path, exchange.requestURI.rawQuery, bytes), caller)
-            exchange.responseHeaders.add("Content-Type", result.type)
-            result.cache?.let { exchange.responseHeaders.add("Cache-Control", it) }
-            exchange.sendResponseHeaders(result.status, result.body.size.toLong())
-            exchange.responseBody.write(result.body)
+            val result = api.handle(
+                EditorApi.Call(
+                    method = exchange.requestMethod,
+                    path = path,
+                    query = exchange.requestURI.rawQuery,
+                    body = bytes,
+                    range = exchange.requestHeaders.getFirst("Range"),
+                ),
+                caller,
+            )
+            send(exchange, result)
         } catch (e: Exception) {
             plugin.logger.warning("Web editor HTTP request failed on ${exchange.requestURI}: ${e.message}")
-            runCatching { reply(exchange, 500, Wire.write(ErrorReply("Server error: ${e.message}"))) }
+            runCatching { reply(exchange, 500, Wire.write(ErrorReply("The server could not answer"))) }
         } finally {
             exchange.close()
+        }
+    }
+
+    private fun send(exchange: HttpExchange, result: EditorApi.Reply) {
+        exchange.responseHeaders.add("Content-Type", result.type)
+        result.cache?.let { exchange.responseHeaders.add("Cache-Control", it) }
+        for ([name, value] in result.headers) exchange.responseHeaders.add(name, value)
+        if (result.file != null) {
+            exchange.sendResponseHeaders(result.status, result.file.fileSize())
+            Files.copy(result.file, exchange.responseBody)
+        } else if (result.status == 204) {
+            exchange.sendResponseHeaders(204, -1)
+        } else {
+            exchange.sendResponseHeaders(result.status, result.body.size.toLong())
+            exchange.responseBody.write(result.body)
         }
     }
 
@@ -99,10 +135,12 @@ internal class EditorServer(
         exchange.responseBody.write(bytes)
     }
 
+    /** The configured editor site, plus localhost only when listening on a loopback address. */
     private fun allowed(origin: String): Boolean {
         val uri = runCatching { URI(origin) }.getOrNull() ?: return false
-        val site = runCatching { URI(plugin.config.data.editor.site) }.getOrNull()
+        val editorCfg = plugin.config.data.editor
+        val site = runCatching { URI(editorCfg.site) }.getOrNull()
         if (site != null && uri.scheme == site.scheme && uri.host == site.host && uri.port == site.port) return true
-        return uri.scheme == "http" && uri.host in setOf("localhost", "127.0.0.1")
+        return EditorGuard.isLoopback(editorCfg.host) && uri.scheme == "http" && uri.host in setOf("localhost", "127.0.0.1")
     }
 }

@@ -6,6 +6,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import mc.xalitoria.crates.paper.data.model.FullInventoryPolicy
 import mc.xalitoria.crates.paper.data.model.SoundConfig
+import mc.xalitoria.crates.paper.hologram.HologramProvider
 
 /**
  * Main plugin configuration (`plugins/XaliCrates/config.yml`).
@@ -153,10 +154,21 @@ data class MainConfig(
 
     @Serializable
     data class HologramSettings(
-        @YamlComment("Global vertical offset in blocks for native TextDisplay crate holograms.")
+        @YamlComment(
+            "Where crate holograms are drawn. AUTO takes the first installed of DecentHolograms, CMI, HolographicDisplays, " +
+                "PacketEvents, ProtocolLib, and then Paper's own TextDisplay entities (NATIVE). Name one of " +
+                "DECENTHOLOGRAMS, CMI, HOLOGRAPHICDISPLAYS, PACKETEVENTS, PROTOCOLLIB or NATIVE to force it " +
+                "(AUTO is used when that one is not installed).",
+        )
+        val provider: HologramProvider = HologramProvider.AUTO,
+        @YamlComment("Global vertical offset in blocks added to every crate hologram.")
         val offset: Double = 0.0,
         @SerialName("view-range")
+        @YamlComment("Blocks from which a hologram is shown. A hosted hologram (DecentHolograms, CMI, HolographicDisplays) uses its own range.")
         val viewRange: Float = 32.0f,
+        @SerialName("refresh-ticks")
+        @YamlComment("PacketEvents and ProtocolLib only: ticks between checks of who is close enough to see a hologram.")
+        val refreshTicks: Int = 20,
     )
 
     @Serializable
@@ -282,6 +294,13 @@ data class MainConfig(
     }
 
     @Serializable
+    enum class VerifyIp {
+        @SerialName("admin") ADMIN,
+        @SerialName("owner") OWNER,
+        @SerialName("off") OFF,
+    }
+
+    @Serializable
     data class EditorSettings(
         @YamlComment("Run a direct HTTP endpoint on this server for /xcrates web.")
         val enabled: Boolean = false,
@@ -292,6 +311,17 @@ data class MainConfig(
         val site: String = "https://crate.xali.to",
         @SerialName("session-minutes")
         val sessionMinutes: Int = 60,
+        @SerialName("verify-ip")
+        @YamlComment("IP check for admin saves: admin (match link creator or any online admin), owner (creator IP only), or off.")
+        val verifyIp: VerifyIp = VerifyIp.ADMIN,
+        @SerialName("trust-proxy")
+        @YamlComment("Honor CF-Connecting-IP / X-Forwarded-For on direct HTTP requests from loopback (reverse proxy).")
+        val trustProxy: Boolean = false,
+        @YamlComment("Optional local resource pack zip path (auto-detects Nexo/Oraxen/ItemsAdder when empty).")
+        val pack: String = "",
+        @SerialName("pack-url")
+        @YamlComment("Optional CORS-enabled public URL of the server's resource pack zip.")
+        val packUrl: String = "",
         val relay: RelaySettings = RelaySettings(),
     ) {
         @Serializable

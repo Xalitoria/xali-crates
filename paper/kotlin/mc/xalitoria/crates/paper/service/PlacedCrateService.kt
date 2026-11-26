@@ -15,35 +15,35 @@ import mc.xalitoria.crates.paper.data.model.CrateConfig
 import mc.xalitoria.crates.paper.data.model.CrateDisplayKind
 import mc.xalitoria.crates.paper.data.model.HologramAnimationType
 import mc.xalitoria.crates.paper.data.model.ObtainMethod
+import mc.xalitoria.crates.paper.hologram.Hologram
+import mc.xalitoria.crates.paper.hologram.HologramProviders
+import mc.xalitoria.crates.paper.hologram.HologramText
 import net.kyori.adventure.text.Component
 import org.bukkit.Bukkit
-import org.bukkit.Color
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
-import org.bukkit.entity.Display
 import org.bukkit.entity.Entity
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.LivingEntity
-import org.bukkit.entity.TextDisplay
 import org.bukkit.persistence.PersistentDataType
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Manages placed crates in worlds, Folia-safe ambient particles, native Paper [TextDisplay] holograms
- * (with animated prefixes & temporary reward holograms), entity displays, and lucky chest despawning.
+ * Manages placed crates in worlds, Folia-safe ambient particles, holograms (drawn by the provider that
+ * [mc.xalitoria.crates.paper.hologram.HologramService] chose, with animated prefixes & temporary reward text),
+ * entity displays, and lucky chest despawning.
  */
 class PlacedCrateService(private val plugin: XaliCrates) {
     private val placed = ConcurrentHashMap<BlockPos, PlacedCrateRecord>()
-    private val holograms = ConcurrentHashMap<BlockPos, UUID>()
+    private val holograms = ConcurrentHashMap<BlockPos, Hologram>()
     private val displayEntities = ConcurrentHashMap<BlockPos, UUID>()
     private val rewardHoloUntil = ConcurrentHashMap<BlockPos, Long>()
     private val tickCounter = AtomicLong(0L)
     private var tickTask: ScheduledTask? = null
 
-    val holoMarkerKey = NamespacedKey(plugin, "hologram")
     val entityMarkerKey = NamespacedKey(plugin, "crate_entity")
 
     @Volatile
@@ -130,20 +130,14 @@ class PlacedCrateService(private val plugin: XaliCrates) {
         val pos = record.blockKey
         rewardHoloUntil[pos] = System.currentTimeMillis() + durationMs
         loc.runTask(plugin) {
-            val display = holograms[pos]?.let { Bukkit.getEntity(it) as? TextDisplay }
-            if (display != null && display.isValid) {
-                display.text(rewardText.toComponent())
-            }
+            holograms[pos]?.lines(listOf(rewardText.toComponent()))
         }
         val ticks = (durationMs / 50L).coerceAtLeast(1L)
         loc.runTaskLater(plugin, ticks) {
             rewardHoloUntil.remove(pos)
             val current = placed[pos] ?: return@runTaskLater
             val c = plugin.crates[current.crateId] ?: return@runTaskLater
-            val display = holograms[pos]?.let { Bukkit.getEntity(it) as? TextDisplay }
-            if (display != null && display.isValid) {
-                display.text(renderHologramLines(c, 0L))
-            }
+            holograms[pos]?.lines(renderHologramLines(c, 0L))
         }
     }
 
@@ -162,6 +156,8 @@ class PlacedCrateService(private val plugin: XaliCrates) {
         tickTask?.cancel()
         val interval = plugin.config.data.particles.tickInterval.coerceAtLeast(1).toLong()
         particlesEnabled = plugin.config.data.particles.enabled
+        val refreshHolograms = plugin.holograms.needsRefresh
+        val refreshPeriod = plugin.config.data.holograms.refreshTicks.coerceIn(1, 1200).toLong()
         tickTask = plugin.runTaskTimer(interval, interval) {
             val step = tickCounter.incrementAndGet()
             val now = System.currentTimeMillis()
@@ -183,10 +179,12 @@ class PlacedCrateService(private val plugin: XaliCrates) {
                 val needHoloUpdate = crate.hologram.enabled &&
                     holoAnim.type != HologramAnimationType.NONE &&
                     holoAnim.prefixes.isNotEmpty() &&
-                    (step * interval) % holoAnim.interval.coerceAtLeast(1) == 0L &&
+                    HologramProviders.due(step, interval, holoAnim.interval.coerceAtLeast(1).toLong()) &&
                     !rewardHoloUntil.containsKey(rec.blockKey)
+                val needHoloRefresh = crate.hologram.enabled && refreshHolograms &&
+                    HologramProviders.due(step, interval, refreshPeriod)
 
-                if (needParticles || needHoloUpdate) {
+                if (needParticles || needHoloUpdate || needHoloRefresh) {
                     loc.runTask(plugin) {
                         if (!loc.isChunkLoaded) return@runTask
                         if (needParticles) {
@@ -195,10 +193,10 @@ class PlacedCrateService(private val plugin: XaliCrates) {
                             }
                         }
                         if (needHoloUpdate) {
-                            val display = holograms[rec.blockKey]?.let { Bukkit.getEntity(it) as? TextDisplay }
-                            if (display != null && display.isValid) {
-                                display.text(renderHologramLines(crate, step))
-                            }
+                            holograms[rec.blockKey]?.lines(renderHologramLines(crate, step))
+                        }
+                        if (needHoloRefresh) {
+                            holograms[rec.blockKey]?.refresh()
                         }
                     }
                 }
@@ -211,12 +209,23 @@ class PlacedCrateService(private val plugin: XaliCrates) {
         val crate = plugin.crates[rec.crateId] ?: return
         val loc = Location(world, rec.x.toDouble(), rec.y.toDouble(), rec.z.toDouble())
         loc.runTask(plugin) {
-            if (!loc.isChunkLoaded) return@runTask
-            if (plugin.config.data.crates.keepBlockConsistent) {
-                applyWorldDisplay(loc, crate, rec.blockKey)
-            } else {
+            if (loc.isChunkLoaded) {
+                if (plugin.config.data.crates.keepBlockConsistent) {
+                    applyWorldDisplay(loc, crate, rec.blockKey)
+                } else {
+                    spawnHologram(loc, crate, rec.blockKey)
+                }
+            } else if (!plugin.holograms.needsLoadedChunk) {
+                // A hologram that is no entity does not wait for its chunk; the block and entity display do, see onChunkLoad.
                 spawnHologram(loc, crate, rec.blockKey)
             }
+        }
+    }
+
+    /** Makes the visuals of the placed crates of a chunk that has just loaded (a startup finds most chunks unloaded, and an unloaded chunk loses its entities). */
+    fun onChunkLoad(world: String, chunkX: Int, chunkZ: Int) {
+        for (rec in placed.values) {
+            if (rec.world == world && (rec.x shr 4) == chunkX && (rec.z shr 4) == chunkZ) spawnVisuals(rec)
         }
     }
 
@@ -258,24 +267,19 @@ class PlacedCrateService(private val plugin: XaliCrates) {
     private fun spawnHologram(loc: Location, crate: CrateConfig, pos: BlockPos) {
         if (!crate.hologram.enabled || crate.hologram.lines.isEmpty()) return
         loc.runTask(plugin) {
-            holograms.remove(pos)?.let { Bukkit.getEntity(it)?.remove() }
+            // One that is still there is kept: a chunk that loads again must not blink the hologram of a packet or hosted one.
+            val existing = holograms[pos]
+            if (existing != null && existing.valid) return@runTask
+            existing?.remove()
+            holograms.remove(pos)
             val yOffset = 1.35 + plugin.config.data.holograms.offset + crate.hologram.offset
-            val holoLoc = loc.clone().add(0.5, yOffset, 0.5)
-            val display = loc.world.spawn(holoLoc, TextDisplay::class.java) { td ->
-                td.billboard = Display.Billboard.CENTER
-                td.isShadowed = true
-                td.isSeeThrough = false
-                td.isPersistent = false
-                td.backgroundColor = Color.fromARGB(80, 0, 0, 0)
-                td.viewRange = plugin.config.data.holograms.viewRange
-                td.text(renderHologramLines(crate, 0L))
-                td.persistentDataContainer.set(holoMarkerKey, PersistentDataType.STRING, pos.asKey())
-            }
-            holograms[pos] = display.uniqueId
+            val anchor = loc.clone().add(0.5, yOffset, 0.5)
+            val name = HologramProviders.name(pos.world, pos.x, pos.y, pos.z)
+            plugin.holograms.create(name, anchor, renderHologramLines(crate, 0L))?.let { holograms[pos] = it }
         }
     }
 
-    private fun renderHologramLines(crate: CrateConfig, step: Long): Component {
+    private fun renderHologramLines(crate: CrateConfig, step: Long): List<Component> {
         val lines = crate.hologram.lines
         val anim = crate.hologram.animation
         val rendered = if (anim.type == HologramAnimationType.NONE || anim.prefixes.isEmpty()) {
@@ -294,26 +298,31 @@ class PlacedCrateService(private val plugin: XaliCrates) {
                 HologramAnimationType.NONE -> lines
             }
         }
-        return rendered.joinToString("\n").toComponent()
+        return HologramText.lines(rendered)
     }
 
     private fun cleanupVisuals(pos: BlockPos, loc: Location?, clearBlock: Boolean) {
-        val holoId = holograms.remove(pos)
+        val hologram = holograms.remove(pos)
         val entId = displayEntities.remove(pos)
         rewardHoloUntil.remove(pos)
         if (loc != null) {
             loc.runTask(plugin) {
-                holoId?.let { Bukkit.getEntity(it)?.remove() }
+                hologram?.remove()
                 entId?.let { Bukkit.getEntity(it)?.remove() }
                 if (clearBlock) loc.block.type = Material.AIR
             }
+        } else {
+            hologram?.let { runCatching { it.remove() } }
         }
     }
 
+    /** Removes every hologram and entity display; they are made again by [rebuildVisuals]. */
+    fun removeVisuals() = removeAllVisuals()
+
     private fun removeAllVisuals() {
-        for ([pos, id] in holograms.entries.toList()) {
+        for ([pos, hologram] in holograms.entries.toList()) {
             holograms.remove(pos)
-            Bukkit.getEntity(id)?.let { entity -> entity.runTask(plugin) { entity.remove() } }
+            runCatching { hologram.remove() }
         }
         for ([pos, id] in displayEntities.entries.toList()) {
             displayEntities.remove(pos)

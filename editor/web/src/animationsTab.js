@@ -1,7 +1,13 @@
-// Interactive 9xN custom stage-based animation editor with drag-painting, symbol palette, and live frame preview.
+// Interactive 9xN custom stage-based animation editor with live Minecraft item icons,
+// drag-painting, right-click erasing, stage reordering, quick grid tools, and live playback preview.
 
 import { el, renderObjectForm } from './form.js'
+import { confirmModal, promptModal } from './modal.js'
+import { renderEnv, renderItemIcon } from './renderer.js'
 import { starterAnimation } from './schema.js'
+import { mcTextCanvas } from './shared/textpreview.js'
+
+const ID_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/
 
 const SPECIAL_COLORS = {
   A: '#555a66',
@@ -12,6 +18,15 @@ const SPECIAL_COLORS = {
   RR: '#ff9800',
   SR: '#f06292',
   NS: '#5b9dff',
+}
+
+const SPECIAL_PREVIEW_ITEMS = {
+  R: { material: 'diamond' },
+  RS: { material: 'ender_chest' },
+  OS: { material: 'chest' },
+  RR: { material: 'nether_star' },
+  SR: { material: 'emerald' },
+  NS: { material: 'arrow' },
 }
 
 function colorForSymbol(sym, fillers) {
@@ -30,19 +45,27 @@ function colorForSymbol(sym, fillers) {
   return '#5c6bc0'
 }
 
+function previewItemForSymbol(sym, anim) {
+  if (anim.fillers?.[sym]) return anim.fillers[sym]
+  if (SPECIAL_PREVIEW_ITEMS[sym]) return SPECIAL_PREVIEW_ITEMS[sym]
+  if (sym.startsWith('R') && sym.length > 1) return { material: 'gold_ingot' }
+  return null
+}
+
 export class AnimationsTab {
-  constructor({ schema, store, getInfo, onDeleteRemote }) {
+  constructor({ schema, store, getInfo, onDeleteRemote, onToast }) {
     this.schema = schema
     this.store = store
     this.getInfo = getInfo
     this.onDeleteRemote = onDeleteRemote
+    this.onToast = onToast
     this.stageIndex = 0
     this.brush = 'R'
-    this.painting = false
+    this.paintSym = null
     this.playing = false
     this.playTimer = null
 
-    window.addEventListener('pointerup', () => { this.painting = false })
+    window.addEventListener('pointerup', () => { this.paintSym = null })
   }
 
   stopPlayback() {
@@ -66,7 +89,7 @@ export class AnimationsTab {
     }
     left.append(head)
 
-    const body = el('div', { class: 'side-body' })
+    const body = el('div', { class: 'side-body', 'data-scroll-key': 'anims-sidebar' })
     const ids = Object.keys(this.store.animations).sort()
     for (const id of ids) {
       const anim = this.store.animations[id]
@@ -105,10 +128,10 @@ export class AnimationsTab {
         [syms['next-stage'] || 'NS', 'Next Stage Button'],
       ]
       for (const [sym, label] of builtins) {
-        palette.append(this.paletteButton(sym, label, anim.fillers))
+        palette.append(this.paletteButton(sym, label, anim))
       }
       for (const [sym, item] of Object.entries(anim.fillers ?? {})) {
-        palette.append(this.paletteButton(sym, item?.material || 'filler', anim.fillers))
+        palette.append(this.paletteButton(sym, item?.material || 'filler', anim))
       }
       body.append(palette)
     }
@@ -117,7 +140,7 @@ export class AnimationsTab {
     root.append(left)
 
     // Center: interactive 9xN grid + stage timeline
-    const center = el('section', { class: 'content' })
+    const center = el('section', { class: 'content', 'data-scroll-key': 'anims-content' })
     if (!anim) {
       center.append(el('div', { class: 'card' },
         el('h3', {}, 'No custom animation selected'),
@@ -149,10 +172,17 @@ export class AnimationsTab {
       header.append(el('button', {
         class: 'small danger',
         onClick: async () => {
-          if (!confirm(`Delete animation '${activeId}'?`)) return
+          const ok = await confirmModal({
+            title: `Delete animation '${activeId}'?`,
+            message: `This removes animations/${activeId}.yml.`,
+            confirmText: 'Delete Animation',
+            danger: true,
+          })
+          if (!ok) return
           this.stopPlayback()
           await this.onDeleteRemote?.('animation', activeId)
           this.store.deleteAnimation(activeId)
+          this.onToast?.(`Deleted animation '${activeId}'`)
         },
       }, 'Delete'))
     }
@@ -184,6 +214,30 @@ export class AnimationsTab {
         },
       }, '+ Add Stage'))
       if (stage) {
+        if (this.stageIndex > 0) {
+          strip.append(el('button', {
+            class: 'small',
+            title: 'Move stage earlier',
+            onClick: () => {
+              const idx = this.stageIndex
+              mutate((a) => { ;[a.stages[idx - 1], a.stages[idx]] = [a.stages[idx], a.stages[idx - 1]] })
+              this.stageIndex = idx - 1
+              this.store.emit()
+            },
+          }, '◀'))
+        }
+        if (this.stageIndex < stages.length - 1) {
+          strip.append(el('button', {
+            class: 'small',
+            title: 'Move stage later',
+            onClick: () => {
+              const idx = this.stageIndex
+              mutate((a) => { ;[a.stages[idx + 1], a.stages[idx]] = [a.stages[idx], a.stages[idx + 1]] })
+              this.stageIndex = idx + 1
+              this.store.emit()
+            },
+          }, '▶'))
+        }
         strip.append(el('button', {
           class: 'small',
           onClick: () => {
@@ -191,7 +245,7 @@ export class AnimationsTab {
             this.stageIndex++
             this.store.emit()
           },
-        }, 'Duplicate Stage'))
+        }, 'Duplicate'))
         if (stages.length > 1) {
           strip.append(el('button', {
             class: 'small danger',
@@ -200,7 +254,7 @@ export class AnimationsTab {
               this.stageIndex = Math.max(0, this.stageIndex - 1)
               this.store.emit()
             },
-          }, 'Remove Stage'))
+          }, 'Remove'))
         }
       }
     }
@@ -215,11 +269,6 @@ export class AnimationsTab {
       if (stage['repeat-stage'] > 0) {
         stageCard.append(el('div', { class: 'muted' }, `Repeats Stage #${stage['repeat-stage']} (${stage['repeat-times'] ?? 1}×). Clear repeat-stage to edit a custom grid.`))
       } else {
-        const chest = el('div', { class: 'mc-chest' },
-          el('div', { class: 'mc-chest-title' }, `Stage ${this.stageIndex + 1} · Click or drag to paint "${this.brush}" (Shift+click toggles winning slot)`),
-        )
-        const gridEl = el('div', { class: 'mc-grid' })
-
         const normalizedGrid = Array.from({ length: rows }, (_, r) => {
           const line = stage.grid?.[r] ?? Array(9).fill(air).join(',')
           const cols = String(line).split(',').map((s) => s.trim())
@@ -227,7 +276,40 @@ export class AnimationsTab {
           return cols.slice(0, 9)
         })
 
-        const paintSlot = (r, c, shiftKey) => {
+        const applyGrid = (g) => {
+          mutate((a) => { a.stages[this.stageIndex].grid = g.map((row) => row.join(',')) })
+        }
+
+        if (!readOnly) {
+          stageCard.append(el('div', { class: 'row-inline' },
+            el('span', { class: 'muted', style: 'font-size:12px' }, `Brush: "${this.brush}" · Left-drag paint · Right-click erase · Shift+click winning slot`),
+            el('div', { style: 'flex:1' }),
+            el('button', {
+              class: 'small',
+              onClick: () => {
+                const g = normalizedGrid.map((row) => row.slice())
+                for (let r = 0; r < rows; r++) {
+                  for (let c = 0; c < 9; c++) {
+                    if (r === 0 || r === rows - 1 || c === 0 || c === 8) g[r][c] = this.brush
+                  }
+                }
+                applyGrid(g)
+              },
+            }, 'Fill Border'),
+            el('button', {
+              class: 'small',
+              onClick: () => applyGrid(Array.from({ length: rows }, () => Array(9).fill(air))),
+            }, 'Clear Grid'),
+          ))
+        }
+
+        const chestTitle = anim['inventory-title'] || `Stage ${this.stageIndex + 1}`
+        const chest = el('div', { class: 'mc-chest' },
+          el('div', { class: 'mc-chest-title' }, mcTextCanvas(renderEnv.text, chestTitle, { scale: 2, color: '#3f3f3f', shadow: false })),
+        )
+        const gridEl = el('div', { class: 'mc-grid' })
+
+        const paintSlot = (r, c, sym, shiftKey) => {
           if (readOnly) return
           const coord = `${r + 1},${c + 1}`
           mutate((a) => {
@@ -239,7 +321,7 @@ export class AnimationsTab {
               st['reward-slots'] = [...list]
             } else {
               const g = normalizedGrid.map((row) => row.slice())
-              g[r][c] = this.brush
+              g[r][c] = sym
               st.grid = g.map((row) => row.join(','))
             }
           })
@@ -250,22 +332,26 @@ export class AnimationsTab {
             const sym = normalizedGrid[r][c]
             const coord = `${r + 1},${c + 1}`
             const isWin = winSet.has(coord)
-            const bg = sym === air ? '#8b8b8b' : colorForSymbol(sym, anim.fillers)
+            const previewItem = sym === air ? null : previewItemForSymbol(sym, anim)
+            const bg = sym === air ? '#8b8b8b' : (previewItem ? '#8b8b8b' : colorForSymbol(sym, anim.fillers))
             const slot = el('div', {
               class: `mc-slot${isWin ? ' win-slot' : ''}`,
               style: `background:${bg}`,
               title: `Row ${r + 1}, Col ${c + 1} (${sym})${isWin ? ' [WINNING SLOT]' : ''}`,
+              onContextmenu: (e) => e.preventDefault(),
               onPointerdown: (e) => {
                 e.preventDefault()
-                if (!e.shiftKey) this.painting = true
-                paintSlot(r, c, e.shiftKey)
+                const chosen = e.button === 2 ? air : this.brush
+                if (!e.shiftKey) this.paintSym = chosen
+                paintSlot(r, c, chosen, e.shiftKey)
               },
               onPointerenter: () => {
-                if (this.painting) paintSlot(r, c, false)
+                if (this.paintSym !== null) paintSlot(r, c, this.paintSym, false)
               },
             },
               el('span', { class: 'slot-idx' }, String(r * 9 + c)),
-              el('span', {}, sym === air ? '' : sym),
+              previewItem ? el('div', { class: 'mc-slot-icon' }, renderItemIcon(previewItem, 2, { contain: true })) : null,
+              sym !== air ? el('span', { class: previewItem ? 'mc-slot-sym' : '' }, sym) : null,
             )
             gridEl.append(slot)
           }
@@ -290,7 +376,7 @@ export class AnimationsTab {
     // Right sidebar: Animation global settings & fillers
     const right = el('aside', { class: 'sidebar right' })
     right.append(el('div', { class: 'side-head' }, el('h2', {}, 'Animation Settings')))
-    const rBody = el('div', { class: 'side-body', style: 'padding:12px' })
+    const rBody = el('div', { class: 'side-body', style: 'padding:12px', 'data-scroll-key': 'anims-right' })
     rBody.append(renderObjectForm({
       schema: this.schema,
       typeName: 'AnimationConfig',
@@ -308,13 +394,16 @@ export class AnimationsTab {
     return root
   }
 
-  paletteButton(sym, label, fillers) {
+  paletteButton(sym, label, anim) {
+    const item = previewItemForSymbol(sym, anim)
     return el('button', {
       class: `palette-btn${this.brush === sym ? ' active' : ''}`,
       onClick: () => { this.brush = sym; this.store.emit() },
     },
-      el('span', { class: 'palette-chip', style: `background:${colorForSymbol(sym, fillers)}` }, sym),
-      el('span', { style: 'font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, label),
+      item
+        ? el('span', { class: 'palette-chip', style: 'background:#313643' }, renderItemIcon(item, 1.25, { contain: true }))
+        : el('span', { class: 'palette-chip', style: `background:${colorForSymbol(sym, anim.fillers)}` }, sym),
+      el('span', { style: 'font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, `${sym} · ${label}`),
     )
   }
 
@@ -341,16 +430,25 @@ export class AnimationsTab {
     step()
   }
 
-  createAnimation() {
-    const raw = prompt('New animation ID (lowercase letters, digits, _ or -):', 'my-anim')
+  async createAnimation() {
+    const raw = await promptModal({
+      title: 'Create New Animation',
+      message: 'Choose a lowercase animation ID (letters, digits, - or _).',
+      initialValue: 'my-anim',
+      placeholder: 'my-anim',
+      confirmText: 'Create',
+      validate: (v) => {
+        const id = v.toLowerCase()
+        if (!ID_RE.test(id)) return 'Invalid animation ID. Use lowercase letters, digits, - or _.'
+        if (this.store.animations[id]) return `Animation '${id}' already exists.`
+        return null
+      },
+    })
     if (!raw) return
-    const id = raw.trim().toLowerCase()
-    if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id) || this.store.animations[id]) {
-      alert('Invalid or duplicate animation ID.')
-      return
-    }
+    const id = raw.toLowerCase()
     this.store.setAnimation(id, starterAnimation())
     this.stageIndex = 0
     this.store.select('animation', id)
+    this.onToast?.(`Created animation '${id}'`)
   }
 }

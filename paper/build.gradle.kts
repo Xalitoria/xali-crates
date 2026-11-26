@@ -26,6 +26,12 @@ dependencies {
     compileOnly(libs.itemsadder)
     compileOnly(libs.nexo)
     compileOnly(libs.headdatabase)
+    // Hologram hosts and packet libraries, picked at run time (hologram.provider); a class of one is touched only after its plugin is found.
+    compileOnly(libs.decentholograms)
+    compileOnly(libs.cmi.api)
+    compileOnly(libs.holographicdisplays.api)
+    compileOnly(libs.packetevents)
+    compileOnly(libs.protocollib)
 
     testImplementation(libs.xalicraft.util)
     testImplementation(libs.folia.api)
@@ -33,6 +39,7 @@ dependencies {
     testImplementation(libs.xali.redeem.api)
     testImplementation(libs.bundles.database)
     testImplementation(libs.bundles.exposed)
+    testImplementation(libs.packetevents)
 }
 
 tasks.test {

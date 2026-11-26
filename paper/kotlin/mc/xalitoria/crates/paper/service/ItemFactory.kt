@@ -2,6 +2,8 @@ package mc.xalitoria.crates.paper.service
 
 import com.destroystokyo.paper.profile.ProfileProperty
 import com.xalitoria.util.message.toComponent
+import io.papermc.paper.datacomponent.DataComponentTypes
+import io.papermc.paper.datacomponent.item.CustomModelData
 import io.papermc.paper.registry.RegistryAccess
 import io.papermc.paper.registry.RegistryKey
 import mc.xalitoria.crates.paper.XaliCrates
@@ -71,7 +73,6 @@ class ItemFactory(private val plugin: XaliCrates) {
             if (spec.unbreakable) meta.isUnbreakable = true
             if (spec.glow) meta.setEnchantmentGlintOverride(true)
             if (spec.damage > 0 && meta is Damageable) meta.damage = spec.damage
-            if (spec.customModelData > 0) meta.setCustomModelData(spec.customModelData)
             if (!spec.itemModel.isNullOrBlank()) {
                 NamespacedKey.fromString(spec.itemModel)?.let { meta.itemModel = it }
             }
@@ -137,6 +138,12 @@ class ItemFactory(private val plugin: XaliCrates) {
                     meta.addAttributeModifier(attr, mod)
                 }
             }
+        }
+        if (spec.customModelData > 0) {
+            stack.setData(
+                DataComponentTypes.CUSTOM_MODEL_DATA,
+                CustomModelData.customModelData().addFloat(spec.customModelData.toFloat()).build(),
+            )
         }
         return stack
     }
@@ -237,7 +244,7 @@ class ItemFactory(private val plugin: XaliCrates) {
         val enchants = meta?.enchants?.entries?.associate { it.key.key.key to it.value } ?: emptyMap()
         val flags = meta?.itemFlags?.map { it.name } ?: []
         val damage = (meta as? Damageable)?.damage ?: 0
-        val cmd = if (meta != null && meta.hasCustomModelData()) meta.customModelData else 0
+        val cmd = stack.getData(DataComponentTypes.CUSTOM_MODEL_DATA)?.floats()?.firstOrNull()?.toInt() ?: 0
         val model = meta?.itemModel?.asString()
         val color = when (meta) {
             is LeatherArmorMeta -> String.format("#%02X%02X%02X", meta.color.red, meta.color.green, meta.color.blue)
@@ -247,8 +254,10 @@ class ItemFactory(private val plugin: XaliCrates) {
         val potions = (meta as? PotionMeta)?.customEffects?.map {
             PotionEffectSpec(it.type.key.key, it.duration, it.amplifier)
         } ?: []
-        val patterns = (meta as? BannerMeta)?.patterns?.map {
-            BannerPatternSpec(it.pattern.key.key, it.color.name)
+        val patRegistry = RegistryAccess.registryAccess().getRegistry(RegistryKey.BANNER_PATTERN)
+        val patterns = (meta as? BannerMeta)?.patterns?.mapNotNull { pat ->
+            val key = patRegistry.getKey(pat.pattern)?.key ?: return@mapNotNull null
+            BannerPatternSpec(key, pat.color.name)
         } ?: []
         return CrateItem(
             material = customId ?: stack.type.key.key,

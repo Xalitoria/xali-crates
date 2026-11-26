@@ -2,6 +2,7 @@
 // Domain-separated from XaliMenu with salt `xalicrates:session:v1` and AAD prefix `xc1`.
 
 import { createRelayCrypto, bytesOf, base64 } from './shared/relayCore.js'
+import { BlockCache, RangeFile } from './shared/remote.js'
 
 const { deriveCode, seal, open, importKey } = createRelayCrypto({
   salt: 'xalicrates:session:v1',
@@ -31,6 +32,7 @@ export class RelaySource {
       method: options.method ?? 'GET',
       path: path.startsWith('/') ? path : `/${path}`,
       body: options.body ?? null,
+      range: options.headers?.Range ?? null,
     }
     let response
     try {
@@ -39,10 +41,26 @@ export class RelaySource {
         body: await seal(key, session, 'q', payload),
       })
     } catch (error) {
-      throw new Error(`Cannot reach relay at ${this.url}: ${error.message}`)
+      const err = new Error(`Cannot reach relay at ${this.url}: ${error.message}`)
+      err.offline = true
+      throw err
     }
-    if (response.status === 404) throw new Error('This editor link has expired. Run /xcrates web again.')
-    if (response.status === 504) throw new Error('The Minecraft server did not respond in time.')
+    if (response.status === 404) {
+      const err = new Error('This editor link has expired or the server restarted. Run /xcrates web again.')
+      err.offline = true
+      throw err
+    }
+    if (response.status === 503) {
+      const parsed = await response.json().catch(() => ({}))
+      const err = new Error(parsed.error ?? 'The Minecraft server disconnected. Reconnect with a new /xcrates web link.')
+      err.offline = true
+      throw err
+    }
+    if (response.status === 504) {
+      const err = new Error('The Minecraft server did not respond in time.')
+      err.offline = true
+      throw err
+    }
     if (!response.ok) throw new Error(`Relay returned HTTP ${response.status}`)
 
     let answer
@@ -53,6 +71,11 @@ export class RelaySource {
     }
     if (answer.rid !== rid) throw new Error('Mismatched response id from relay.')
     const body = bytesOf(answer.body ?? '')
+    if (answer.status === 401) {
+      const err = new Error('This editor link has ended.')
+      err.offline = true
+      throw err
+    }
     if (answer.status >= 400) {
       const text = decoder.decode(body)
       const parsed = (() => { try { return JSON.parse(text) } catch { return {} } })()
@@ -74,9 +97,22 @@ export class RelaySource {
   async registries() { return (await this.request('/registries')).registries ?? {} }
   async glyphs() { return (await this.request('/glyphs')).glyphs ?? [] }
   async items(materials) { return (await this.request('/items', { method: 'POST', body: JSON.stringify({ materials }) })).items ?? {} }
-  async packBlob() {
+  async packFile(size = null, hash = null) {
+    if (size) {
+      const cache = BlockCache.forHash(hash)
+      return new RangeFile(
+        size,
+        async (start, end) => (await this.requestRaw('/pack', { headers: { Range: `bytes=${start}-${end - 1}` } })).body,
+        1024 * 1024,
+        cache,
+      )
+    }
     const { body } = await this.requestRaw('/pack')
     return new Blob([body], { type: 'application/zip' })
+  }
+  async skin(url) {
+    const { body } = await this.requestRaw(`/skin?url=${encodeURIComponent(url)}`)
+    return body
   }
   async loadCrate(id) { return (await this.request(`/crates/${encodeURIComponent(id)}`)).crate }
   async saveCrate(id, crate) {

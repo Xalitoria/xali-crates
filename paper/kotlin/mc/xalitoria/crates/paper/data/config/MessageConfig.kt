@@ -51,7 +51,7 @@ data class MessageConfig(
             &d/{0} &reditor [crate] &7- open the in-game crate editor
             &d/{0} &rweb [crate] [--auto-reload] &7- open the web editor
             &d/{0} &rshare [readonly|stop] [crate] &7- share a web editor link
-            &d/{0} &redits [apply|drop <id>] &7- review shared web edits
+            &d/{0} &redits [inspect|apply|drop <id>] &7- inspect or approve held web edits
             &d/{0} &rmigrate specializedcrates [path] [--dry-run] [--overwrite] [--skip-data]
             &d/{0} &rlist|info|errors|validate|toggleparticles|reload|debug
         """.trimIndent(),

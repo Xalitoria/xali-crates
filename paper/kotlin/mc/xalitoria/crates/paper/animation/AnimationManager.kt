@@ -595,7 +595,7 @@ class AnimationManager(private val plugin: XaliCrates) {
                 StageInventoryChange.NONE -> {}
             }
 
-            if (stage.totemEffect) player.playEffect(EntityEffect.TOTEM_RESURRECT)
+            if (stage.totemEffect) player.playEffect(EntityEffect.PROTECTED_FROM_DEATH)
             for (pot in stage.potionEffects) {
                 val type = io.papermc.paper.registry.RegistryAccess.registryAccess()
                     .getRegistry(io.papermc.paper.registry.RegistryKey.MOB_EFFECT)

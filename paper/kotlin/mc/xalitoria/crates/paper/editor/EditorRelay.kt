@@ -7,8 +7,10 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.net.http.WebSocket
 import java.net.http.WebSocketHandshakeException
+import java.nio.file.Files
 import java.time.Duration
 import java.util.Base64
+import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.ConcurrentHashMap
@@ -38,12 +40,14 @@ internal class EditorRelay(
         val shared: Boolean = true,
         val autoReload: Boolean = false,
         val initialCrate: String? = null,
+        val ownerIp: String? = null,
+        val ownerUuid: UUID? = null,
     ) {
         @Volatile var running = true
         @Volatile var ws: WebSocket? = null
         val wsSendLock = Any()
         val stopSignal = CountDownLatch(1)
-        val seen: MutableSet<String> = java.util.Collections.synchronizedSet(LinkedHashSet())
+        val seen: MutableMap<String, Long> = java.util.Collections.synchronizedMap(LinkedHashMap())
     }
 
     sealed interface Started {
@@ -62,10 +66,21 @@ internal class EditorRelay(
         readOnly: Boolean = false,
         shared: Boolean = true,
         autoReload: Boolean = false,
+        ownerIp: String? = null,
+        ownerUuid: UUID? = null,
     ): Started {
         val settings = plugin.config.data.editor
         val relay = settings.relay.url.trim().trimEnd('/')
         if (relay.isEmpty()) return Started.Failed("editor.relay.url is not set in config.yml")
+        val relayUri = runCatching { URI(relay) }.getOrNull()
+        if (relayUri == null || (relayUri.scheme != "https" && relayUri.scheme != "http") || relayUri.host.isNullOrBlank()) {
+            return Started.Failed("editor.relay.url must be an http:// or https:// address")
+        }
+        val current = now()
+        shares.values.filter { !it.running || it.expires <= current }.forEach { end(it, tell = false) }
+        if (shares.size >= MAX_SHARES) {
+            return Started.Failed("Too many active relay sessions ($MAX_SHARES); run /xcrates web stop or /xcrates share stop")
+        }
         val minutes = settings.sessionMinutes.coerceAtLeast(1)
         var lastError = "Could not open a relay session"
 
@@ -101,6 +116,8 @@ internal class EditorRelay(
                 shared = shared,
                 autoReload = autoReload,
                 initialCrate = crate,
+                ownerIp = EditorGuard.normalizeIp(ownerIp),
+                ownerUuid = ownerUuid,
             )
             shares[share.id] = share
             if (created.ws) {
@@ -148,6 +165,7 @@ internal class EditorRelay(
             val closed = CountDownLatch(1)
             val listener = object : WebSocket.Listener {
                 private val buffer = StringBuilder()
+                private var oversized = false
 
                 override fun onOpen(webSocket: WebSocket) {
                     failures = 0
@@ -155,13 +173,22 @@ internal class EditorRelay(
                 }
 
                 override fun onText(webSocket: WebSocket, data: CharSequence, last: Boolean): CompletionStage<*>? {
-                    buffer.append(data)
+                    if (!oversized) {
+                        if (buffer.length + data.length > MAX_WS_FRAME) {
+                            oversized = true
+                            buffer.setLength(0)
+                        } else {
+                            buffer.append(data)
+                        }
+                    }
                     if (last) {
-                        val text = buffer.toString()
+                        val drop = oversized
+                        oversized = false
+                        val text = if (drop) "" else buffer.toString()
                         buffer.setLength(0)
-                        if (text != "pong") {
+                        if (!drop && text != "pong") {
                             Wire.read<RelayCall>(text)?.let { call ->
-                                val id = call.id
+                                val id = call.id?.takeIf { CALL_ID.matches(it) }
                                 if (id != null) workers.execute { dispatchWsCall(relay, share, id, call, webSocket) }
                             }
                         }
@@ -220,6 +247,8 @@ internal class EditorRelay(
     }
 
     private fun dispatchWsCall(relay: String, share: Share, callId: String, call: RelayCall, ws: WebSocket) {
+        if (!CALL_ID.matches(callId)) return
+        var clientIp = call.ip
         val data = if (call.fetch) {
             runCatching {
                 val req = HttpRequest.newBuilder(URI("$relay/s/${share.id}/call/$callId"))
@@ -227,13 +256,18 @@ internal class EditorRelay(
                     .header("Authorization", "Bearer ${share.secret}")
                     .GET()
                     .build()
-                val res = Http.send(req, HttpResponse.BodyHandlers.ofByteArray())
-                if (res.statusCode() == 200) res.body() else null
+                val res = Http.send(req, HttpResponse.BodyHandlers.ofInputStream())
+                res.body().use { stream ->
+                    if (res.statusCode() != 200) return@runCatching null
+                    if (clientIp.isNullOrBlank()) clientIp = res.headers().firstValue("x-relay-client-ip").orElse(null)
+                    val bytes = stream.readNBytes(MAX_RELAY_BODY + 1)
+                    bytes.takeIf { it.size <= MAX_RELAY_BODY }
+                }
             }.getOrNull() ?: return
         } else {
             call.data?.let { runCatching { Base64.getUrlDecoder().decode(it) }.getOrNull() } ?: return
         }
-        answer(relay, share, callId, data, ws)
+        answer(relay, share, callId, data, ws, clientIp)
     }
 
     private fun poll(relay: String, share: Share) {
@@ -250,9 +284,9 @@ internal class EditorRelay(
                     200 -> {
                         failures = 0
                         for (call in Wire.read<List<RelayCall>>(res.body()).orEmpty()) {
-                            val id = call.id ?: continue
+                            val id = call.id?.takeIf { CALL_ID.matches(it) } ?: continue
                             val data = call.data?.let { runCatching { Base64.getUrlDecoder().decode(it) }.getOrNull() } ?: continue
-                            workers.execute { answer(relay, share, id, data, null) }
+                            workers.execute { answer(relay, share, id, data, null, call.ip) }
                         }
                     }
                     204 -> failures = 0
@@ -273,8 +307,9 @@ internal class EditorRelay(
         share.running = false
     }
 
-    private fun answer(relay: String, share: Share, callId: String, data: ByteArray, ws: WebSocket?) {
-        val reply = handle(share, data) ?: return
+    private fun answer(relay: String, share: Share, callId: String, data: ByteArray, ws: WebSocket?, clientIp: String? = null) {
+        if (!CALL_ID.matches(callId)) return
+        val reply = handle(share, data, clientIp) ?: return
         val sealed = RelayCrypto.seal(share.key, share.id, "a", Wire.write(reply).toByteArray(Charsets.UTF_8))
         if (ws != null && sealed.size <= WS_ANSWER_MAX) {
             val frame = Wire.write(RelayWsAnswer(callId, Base64.getUrlEncoder().withoutPadding().encodeToString(sealed)))
@@ -293,22 +328,30 @@ internal class EditorRelay(
         }
     }
 
-    internal fun handle(share: Share, data: ByteArray): RelayReply? {
+    internal fun handle(share: Share, data: ByteArray, clientIp: String? = null): RelayReply? {
         val plain = RelayCrypto.open(share.key, share.id, "q", data) ?: return null
         val request = Wire.read<RelayRequest>(plain.decodeToString()) ?: return null
-        val rid = request.rid ?: return null
+        val rid = request.rid?.takeIf { it.length in 1..64 } ?: return null
         val time = request.t ?: return null
-        if (abs(now() - time) > FRESH) return null
+        val current = now()
+        if (abs(current - time) > FRESH) return null
         synchronized(share.seen) {
-            if (!share.seen.add(rid)) return null
-            while (share.seen.size > 2000) share.seen.remove(share.seen.first())
+            val iter = share.seen.entries.iterator()
+            while (iter.hasNext()) {
+                if (current - iter.next().value > FRESH) iter.remove() else break
+            }
+            if (share.seen.containsKey(rid)) return null
+            share.seen[rid] = current
+            while (share.seen.size > MAX_SEEN) share.seen.remove(share.seen.keys.first())
         }
         val method = request.method
         val path = request.path
         if (method !in METHODS || path == null || !path.startsWith("/")) return failure(rid, 400, "Bad request")
+        val bodyBytes = request.body.orEmpty().toByteArray(Charsets.UTF_8)
+        if (bodyBytes.size > EditorApi.MAX_BODY) return failure(rid, 413, "Request body too large")
         val from = if (share.shared) clean(request.from) else share.owner
         val query = path.substringAfter('?', "").ifEmpty { null }
-        val call = EditorApi.Call(method!!, path.substringBefore('?'), query, request.body.orEmpty().toByteArray(Charsets.UTF_8))
+        val call = EditorApi.Call(method!!, path.substringBefore('?'), query, bodyBytes, request.range)
         val reply = try {
             api.handle(
                 call,
@@ -319,14 +362,19 @@ internal class EditorRelay(
                     readOnly = share.readOnly,
                     autoReload = share.autoReload,
                     initialCrate = share.initialCrate,
+                    ownerIp = share.ownerIp,
+                    ownerUuid = share.ownerUuid,
+                    clientIp = EditorGuard.normalizeIp(clientIp),
                 ),
             )
         } catch (e: Exception) {
             plugin.logger.warning("Web editor failed on relay request $path: ${e.message}")
-            return failure(rid, 500, "Server error")
+            return failure(rid, 500, "The server could not answer")
         }
-        if (reply.body.size > MAX_ANSWER) return failure(rid, 413, "Response exceeds relay limit")
-        return RelayReply(rid, reply.status, reply.type, Base64.getEncoder().encodeToString(reply.body))
+        val bytes = reply.file?.let { if (Files.size(it) <= MAX_ANSWER) Files.readAllBytes(it) else null }
+        val tooBig = (reply.file != null && bytes == null) || reply.body.size > MAX_ANSWER
+        if (tooBig) return failure(rid, 413, "Response exceeds relay limit; request a byte Range")
+        return RelayReply(rid, reply.status, reply.type, Base64.getEncoder().encodeToString(bytes ?: reply.body))
     }
 
     private fun failure(rid: String, status: Int, message: String) = RelayReply(
@@ -337,12 +385,17 @@ internal class EditorRelay(
     )
 
     companion object {
-        private const val FRESH = 10 * 60_000L
-        private const val MAX_ANSWER = 4 * 1024 * 1024
+        private const val FRESH = 2 * 60_000L
+        private const val MAX_SEEN = 4096
+        private const val MAX_SHARES = 20
+        private const val MAX_WS_FRAME = 1024 * 1024
+        private const val MAX_RELAY_BODY = EditorApi.MAX_BODY + 256 * 1024
+        private const val MAX_ANSWER = 5 * 1024 * 1024
         private const val WS_ANSWER_MAX = 512 * 1024
         private const val WS_PING_SECONDS = 55L
         private const val JSON = "application/json; charset=utf-8"
         private val METHODS = setOf("GET", "PUT", "POST", "DELETE")
+        val CALL_ID = Regex("[A-Za-z0-9_-]{1,64}")
 
         fun wsUri(relay: String, sessionId: String): URI {
             val base = relay.trimEnd('/')
