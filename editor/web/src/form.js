@@ -1,7 +1,8 @@
 // Schema-driven form renderer for any TypeDef in schema.json, with live Minecraft text previews and registry datalists.
 
 import { defaultForType, defaultObject, typeDef } from './schema.js'
-import { renderMcHtml } from './mctext.js'
+import { renderEnv } from './renderer.js'
+import { mcTextCanvas } from './shared/textpreview.js'
 
 const MC_TEXT_KEYS = new Set(['name', 'display-name', 'inventory-title', 'entity-name', 'reward-line', 'value', 'lore', 'lines'])
 const DATALIST_MAP = {
@@ -174,7 +175,11 @@ export function renderObjectForm({ schema, typeName, value, onChange, readOnly =
       })
       ctrl.append(input)
       if (MC_TEXT_KEYS.has(field.key) && fieldVal) {
-        ctrl.append(el('div', { class: 'mc-preview', html: renderMcHtml(fieldVal) }))
+        ctrl.append(el('div', { class: 'mc-preview' }, mcTextCanvas(renderEnv.text, fieldVal, {
+          scale: 2,
+          color: field.key === 'lore' ? '#aa00aa' : '#ffffff',
+          shadow: true,
+        })))
       }
     } else if (field.type.kind === 'list') {
       ctrl.append(renderListEditor({
@@ -242,7 +247,11 @@ function renderListEditor({ schema, fieldKey, itemType, items, readOnly, onChang
         onChange: (e) => updateAt(e.target.value),
       }))
       if (MC_TEXT_KEYS.has(fieldKey) && item) {
-        wrap.append(el('div', { class: 'mc-preview', html: renderMcHtml(item) }))
+        wrap.append(el('div', { class: 'mc-preview' }, mcTextCanvas(renderEnv.text, item, {
+          scale: 2,
+          color: fieldKey === 'lore' ? '#aa00aa' : '#ffffff',
+          shadow: true,
+        })))
       }
       row.append(wrap)
     }

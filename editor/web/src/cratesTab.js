@@ -2,9 +2,10 @@
 
 import { el, renderObjectForm } from './form.js'
 import { rewardProbabilities } from './check.js'
-import { renderMcHtml, stripMc } from './mctext.js'
+import { stripMc } from './mctext.js'
 import { defaultObject, starterCrate } from './schema.js'
-import { renderItemIcon } from './renderer.js'
+import { renderEnv, renderItemIcon } from './renderer.js'
+import { mcTextCanvas } from './shared/textpreview.js'
 
 const SWATCH_COLORS = ['#b87cff', '#5b9dff', '#5fc27b', '#e2b453', '#e5675f', '#4dd0e1', '#f06292', '#aed581', '#ffb74d', '#90a4ae']
 
@@ -87,7 +88,7 @@ export class CratesTab {
     // Crate banner & subtabs
     const banner = el('div', { style: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap' },
       el('div', {},
-        el('div', { style: 'font-size:18px;font-weight:700', html: renderMcHtml(crate['display-name'] || activeId) }),
+        el('div', { class: 'crate-banner-title' }, mcTextCanvas(renderEnv.text, crate['display-name'] || activeId, { scale: 2.5, color: '#ffffff', shadow: true })),
         el('div', { class: 'muted mono', style: 'font-size:12px' }, `crates/${activeId}.yml`),
       ),
       el('div', { style: 'flex:1' }),
@@ -209,7 +210,7 @@ export class CratesTab {
     const holoBox = el('div', { class: 'holo-preview' })
     if (crate.hologram?.enabled !== false && holoLines.length > 0) {
       for (const line of holoLines) {
-        holoBox.append(el('div', { class: 'holo-line', html: renderMcHtml(line) }))
+        holoBox.append(el('div', { class: 'holo-line' }, mcTextCanvas(renderEnv.text, line, { scale: 2, color: '#ffffff', shadow: true, align: 'center' })))
       }
     } else {
       holoBox.append(el('div', { class: 'muted' }, 'Hologram disabled or no lines configured'))
