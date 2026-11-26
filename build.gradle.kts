@@ -16,7 +16,7 @@ subprojects {
         "editor" -> "com.xalitoria.crates"
         else -> error("No group for $path")
     }
-    version = "0.2.0"
+    version = "0.3.0"
 }
 
 tasks.named("build") {
