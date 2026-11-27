@@ -52,6 +52,7 @@ Standalone commands: `/xkeys` (also `/keys`, `/cratekeys`, `/xcratekeys`, `/crat
 | `/xalicrates web [crate] [--auto-reload]` / `web stop` | `xalicrates.admin.edit` | Opens an encrypted live web editor session. |
 | `/xalicrates share [readonly\|stop] [crate]` / `edits [apply\|drop <id>]` | `xalicrates.admin.edit` | Shares a web editor link whose saves are held for admin approval. |
 | `/xalicrates migrate specializedcrates [path] [--dry-run] [--overwrite] [--skip-data]` | `xalicrates.admin.migrate` | Migrates SpecializedCrates configs, animations, custom menus, placed crates, and player data. |
+| `/xalicrates admin enable\|disable <crate>` | `xalicrates.admin` | Emergency switch: turns a crate off (or on) at once, with no reload, and saves `enabled` to its file so it stays that way after a restart. A disabled crate cannot be opened (by command, key click or menu), and is left out of the menus that list only enabled crates. |
 | `/xalicrates list\|info\|errors\|validate\|toggleparticles\|reload\|debug` | `xalicrates.admin` | Inspection, validation, and reload utilities. |
 
 ## Permissions
@@ -148,6 +149,7 @@ Requires PlaceholderAPI (`%xcrates_<key>%`):
 | `crates/paper/test/RewardRollerTest.kt` | Probabilities, weighted roll, repeat limits, fallback cycle guard, `%amountX-Y%`. |
 | `crates/paper/test/ValidationAndRegistryTest.kt` | Starter crate/animation round-trip and validation rules. |
 | `crates/paper/test/ProximityRulesTest.kt` | Hide radius: `0`, negative and non-finite radii are off, the distance is straight-line and inclusive, other worlds are not near, and two players hide only when they share a crate. |
+| `crates/paper/test/CrateToggleTest.kt` | A crate saved with `enabled: false` (what `admin disable` writes) loads back disabled and is switched on again by saving it enabled. |
 | `crates/paper/test/ConfigFilesTest.kt` | `config.yml` and `language/en-us.yml` are written on the first start and an edited language file is read back. |
 | `crates/paper/test/CratesDatabaseTest.kt` | Guarded virtual key/crate updates, concurrent consumption, transfers, cooldowns, history pruning. |
 | `crates/paper/test/SpecializedCratesMigratorTest.kt` | Full migration of crates, multi-crates, animations, menus, and flatfile data. |

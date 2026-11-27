@@ -23,6 +23,7 @@ import mc.xalitoria.crates.paper.data.db.repository.VirtualBalanceRepository
 import mc.xalitoria.crates.paper.data.model.ConfigProblem
 import mc.xalitoria.crates.paper.editor.PendingEdits
 import mc.xalitoria.crates.paper.migrate.SpecializedCratesMigrator
+import mc.xalitoria.crates.paper.service.CrateRegistry
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import org.bukkit.Bukkit
@@ -163,6 +164,18 @@ class CratesCommand(private val plugin: XaliCrates) {
             Commands.literal("delall")
                 .requires { it.sender.hasPermission(Permissions.ADMIN_EDIT) }
                 .then(crateArg().executes { exec(it) { sender -> deleteAllPlaced(sender, str(it, "crate")) } }),
+        )
+        .then(
+            Commands.literal("admin")
+                .requires { it.sender.hasPermission(Permissions.ADMIN) }
+                .then(
+                    Commands.literal("enable")
+                        .then(crateArg().executes { exec(it) { sender -> setCrateEnabled(sender, str(it, "crate"), true) } }),
+                )
+                .then(
+                    Commands.literal("disable")
+                        .then(crateArg().executes { exec(it) { sender -> setCrateEnabled(sender, str(it, "crate"), false) } }),
+                ),
         )
         .then(
             Commands.literal("list")
@@ -627,6 +640,30 @@ class CratesCommand(private val plugin: XaliCrates) {
         val count = plugin.placed.removeAllOf(id, clearBlock = false)
         val display = plugin.crates[id]?.let { plugin.displayNameOf(id, it) } ?: id
         sender send msg.admin.deletedAll(count, display)
+    }
+
+    /** The emergency switch: takes effect in memory at once (no reload, so no hologram flicker) and is then saved to the crate's file. */
+    private fun setCrateEnabled(sender: CommandSender, crateId: String, enabled: Boolean) {
+        val id = crateId.lowercase()
+        val crate = plugin.crates[id]
+        if (crate == null) {
+            sender fail msg.commands.unknownCrate(id)
+            return
+        }
+        val display = plugin.displayNameOf(id, crate)
+        if (crate.enabled == enabled) {
+            sender send msg.admin.crateAlready(display, if (enabled) "&aenabled" else "&cdisabled")
+            return
+        }
+        val updated = crate.copy(enabled = enabled)
+        plugin.crates = plugin.crates + (id to updated)
+        try {
+            CrateRegistry.saveCrate(plugin.dataPath.resolve("crates"), id, updated)
+        } catch (e: Exception) {
+            sender fail msg.admin.crateNotSaved(id, e.message ?: e::class.simpleName.orEmpty())
+        }
+        plugin.logger.info("${sender.name} ${if (enabled) "enabled" else "disabled"} crate $id")
+        sender send if (enabled) msg.admin.crateEnabled(display) else msg.admin.crateDisabled(display)
     }
 
     private fun listCrates(sender: CommandSender) {

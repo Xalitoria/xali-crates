@@ -53,6 +53,7 @@ data class MessageConfig(
             &d/{0} &rshare [readonly|stop] [crate] &7- share a web editor link
             &d/{0} &redits [inspect|apply|drop <id>] &7- inspect or approve held web edits
             &d/{0} &rmigrate specializedcrates [path] [--dry-run] [--overwrite] [--skip-data]
+            &d/{0} &radmin enable|disable <crate> &7- turn a crate on or off at once (kept in its file)
             &d/{0} &rlist|info|errors|validate|toggleparticles|reload|debug
         """.trimIndent(),
         private val reload: String = "Configuration reloaded: {0} crates, {1} animations.",
@@ -181,6 +182,14 @@ data class MessageConfig(
         private val receivedCrate: String = "$PREFIX&aYou received &f{0}x &r{1}&a {2} crates.",
         @SerialName("deleted-all")
         private val deletedAll: String = "&aRemoved {0} placed instances of {1}&a.",
+        @SerialName("crate-enabled")
+        private val crateEnabled: String = "&a{0}&a is now enabled.",
+        @SerialName("crate-disabled")
+        private val crateDisabled: String = "&c{0}&c is now disabled. Nobody can open it until it is enabled again.",
+        @SerialName("crate-already")
+        private val crateAlready: String = "&7{0}&7 is already {1}&7.",
+        @SerialName("crate-not-saved")
+        private val crateNotSaved: String = "&cThe change is on until the next reload or restart, but {0}.yml could not be saved: {1}",
         @SerialName("no-crate-targeted")
         val noCrateTargeted: String = "&cLook at a block within 6 blocks.",
         @SerialName("not-a-placed-crate")
@@ -206,6 +215,10 @@ data class MessageConfig(
         fun gaveCrate(player: String, amount: Int, crate: String, kind: String): String = gaveCrate.formatArgs(player, amount, crate, kind)
         fun receivedCrate(amount: Int, crate: String, kind: String): String = receivedCrate.formatArgs(amount, crate, kind)
         fun deletedAll(count: Int, crate: String): String = deletedAll.formatArgs(count, crate)
+        fun crateEnabled(crate: String): String = crateEnabled.formatArgs(crate)
+        fun crateDisabled(crate: String): String = crateDisabled.formatArgs(crate)
+        fun crateAlready(crate: String, state: String): String = crateAlready.formatArgs(crate, state)
+        fun crateNotSaved(id: String, reason: String): String = crateNotSaved.formatArgs(id, reason)
         fun listEntry(id: String, state: String, rewards: Int, placed: Int): String = listEntry.formatArgs(id, state, rewards, placed)
         fun historyHeader(player: String): String = historyHeader.formatArgs(player)
         fun historyEntry(time: String, crate: String, rewards: String): String = historyEntry.formatArgs(time, crate, rewards)
