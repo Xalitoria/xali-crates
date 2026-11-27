@@ -885,14 +885,17 @@ class CratesCommand(private val plugin: XaliCrates) {
         }
 
     private fun playerArg(): RequiredArgumentBuilder<CommandSourceStack, String> =
-        Commands.argument("player", StringArgumentType.word()).suggests { _, b ->
-            Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(b.remaining, ignoreCase = true) }.forEach(b::suggest)
+        Commands.argument("player", StringArgumentType.word()).suggests { ctx, b ->
+            val sender = ctx.source.sender
+            Bukkit.getOnlinePlayers().filter { sender !is Player || sender.canSee(it) }.map { it.name }
+                .filter { it.startsWith(b.remaining, ignoreCase = true) }.forEach(b::suggest)
             b.buildFuture()
         }
 
     private fun playerOrAllArg(): RequiredArgumentBuilder<CommandSourceStack, String> =
-        Commands.argument("player", StringArgumentType.word()).suggests { _, b ->
-            (listOf("all") + Bukkit.getOnlinePlayers().map { it.name })
+        Commands.argument("player", StringArgumentType.word()).suggests { ctx, b ->
+            val sender = ctx.source.sender
+            (listOf("all") + Bukkit.getOnlinePlayers().filter { sender !is Player || sender.canSee(it) }.map { it.name })
                 .filter { it.startsWith(b.remaining, ignoreCase = true) }
                 .forEach(b::suggest)
             b.buildFuture()
