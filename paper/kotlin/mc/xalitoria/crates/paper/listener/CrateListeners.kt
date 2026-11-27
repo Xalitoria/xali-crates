@@ -58,6 +58,7 @@ class CrateListeners(private val plugin: XaliCrates) : Listener {
     fun onQuit(event: PlayerQuitEvent) {
         val player = event.player
         plugin.animations.handleQuit(player)
+        plugin.proximity.forget(player.uniqueId)
         plugin.editorGui.forget(player.uniqueId)
         plugin.keys.forget(player.uniqueId)
         plugin.openService.forgetPlayer(player.uniqueId)

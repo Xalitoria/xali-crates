@@ -195,6 +195,12 @@ data class CrateDisplayConfig(
     /** Optional custom name tag displayed on the entity. */
     @SerialName("entity-name")
     val entityName: String? = null,
+    /**
+     * Players within this many blocks of a placed instance of this crate cannot see each other while they stand there.
+     * `0` (the default) or less turns it off.
+     */
+    @SerialName("hide-radius")
+    val hideRadius: Double = 0.0,
 )
 
 /** Key item and interaction settings for a crate. */

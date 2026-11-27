@@ -81,7 +81,7 @@ export function starterCrate() {
     },
     cooldown: { duration: '0s', 'per-location': false, 'bypass-permission': 'xalicrates.admin' },
     cost: { amount: 0, currency: '', 'key-or-economy': false },
-    display: { kind: 'BLOCK', block: null, entity: null, 'entity-name': null, 'head-texture': null },
+    display: { kind: 'BLOCK', block: null, entity: null, 'entity-name': null, 'hide-radius': 0, 'head-texture': null },
     hologram: {
       enabled: true,
       lines: ['&d&lStarter Crate', '&7Right-click with a key to open', '&7Left-click to preview'],

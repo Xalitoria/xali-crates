@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.3.0",
   "crateRoot": "CrateConfig",
   "animationRoot": "AnimationConfig",
   "builtinAnimations": [
@@ -878,6 +878,15 @@
           "required": false,
           "nullable": true,
           "doc": "Optional custom name tag displayed on the entity."
+        },
+        {
+          "key": "hide-radius",
+          "type": {
+            "kind": "number"
+          },
+          "required": false,
+          "default": 0.0,
+          "doc": "Players within this many blocks of a placed instance of this crate cannot see each other while they stand there. `0` (the default) or less turns it off."
         }
       ]
     },

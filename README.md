@@ -12,6 +12,7 @@
 - [XaliMenu integration](#xalimenu-integration)
 - [XaliRedeem integration](#xaliredeem-integration)
 - [Holograms](#holograms)
+- [Hiding players near a crate](#hiding-players-near-a-crate)
 - [Migration from SpecializedCrates](#migration-from-specializedcrates)
 - [Placeholders](#placeholders)
 - [Tests](#tests)
@@ -114,6 +115,17 @@ A named provider that is not installed (or fails to start) falls back to `AUTO` 
 
 A packet hologram is shown to a player within `view-range` and hidden four blocks past it (so the edge does not blink). It is sent again after a world change and a respawn, and a restart or a crash leaves nothing in a world to clean up.
 
+## Hiding players near a crate
+
+A crate file can hide the players who crowd a placed crate, so nobody stands in front of another player's view of it:
+
+```yaml
+display:
+  hide-radius: 4.0
+```
+
+Players who stand within `hide-radius` blocks (straight line from the middle of the crate block, same world) of the same placed crate cannot see each other until one of them steps out. The default is `0`, and a radius of `0` or less turns it off. It is checked every 5 ticks on each player's own thread, so it works on Folia. Only players this plugin hid are shown again: the radius being lowered or set to `0`, the crate being removed, disabled or reloaded away, a player leaving, and the plugin stopping all show them. A vanish plugin's own hiding is not touched.
+
 ## Migration from SpecializedCrates
 
 ```console
@@ -135,6 +147,7 @@ Requires PlaceholderAPI (`%xcrates_<key>%`):
 | `crates/api/test/AddonSurface.kt` | Public API has no Kotlin types or interface `$DefaultImpls`. |
 | `crates/paper/test/RewardRollerTest.kt` | Probabilities, weighted roll, repeat limits, fallback cycle guard, `%amountX-Y%`. |
 | `crates/paper/test/ValidationAndRegistryTest.kt` | Starter crate/animation round-trip and validation rules. |
+| `crates/paper/test/ProximityRulesTest.kt` | Hide radius: `0`, negative and non-finite radii are off, the distance is straight-line and inclusive, other worlds are not near, and two players hide only when they share a crate. |
 | `crates/paper/test/ConfigFilesTest.kt` | `config.yml` and `language/en-us.yml` are written on the first start and an edited language file is read back. |
 | `crates/paper/test/CratesDatabaseTest.kt` | Guarded virtual key/crate updates, concurrent consumption, transfers, cooldowns, history pruning. |
 | `crates/paper/test/SpecializedCratesMigratorTest.kt` | Full migration of crates, multi-crates, animations, menus, and flatfile data. |

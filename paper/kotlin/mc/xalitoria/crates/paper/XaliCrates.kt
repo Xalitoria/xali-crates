@@ -43,6 +43,7 @@ import mc.xalitoria.crates.paper.service.ItemFactory
 import mc.xalitoria.crates.paper.service.KeyService
 import mc.xalitoria.crates.paper.service.LuckyChestService
 import mc.xalitoria.crates.paper.service.PlacedCrateService
+import mc.xalitoria.crates.paper.service.ProximityHider
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.xalitoria.crates.XaliCratesApi
@@ -95,6 +96,9 @@ class XaliCrates : JavaPlugin() {
         private set
 
     lateinit var placed: PlacedCrateService
+        private set
+
+    lateinit var proximity: ProximityHider
         private set
 
     lateinit var luckyChests: LuckyChestService
@@ -169,6 +173,7 @@ class XaliCrates : JavaPlugin() {
         keys = KeyService(this)
         holograms = HologramService(this).also { it.open() }
         placed = PlacedCrateService(this).also { it.particlesEnabled = config.data.particles.enabled }
+        proximity = ProximityHider(this).also { it.start() }
         luckyChests = LuckyChestService(this)
         openService = CrateOpenService(this)
         animations = AnimationManager(this)
@@ -239,6 +244,7 @@ class XaliCrates : JavaPlugin() {
         if (::editorRelay.isInitialized) editorRelay.stop()
         if (::editorServer.isInitialized) editorServer.stop()
         if (::animations.isInitialized) animations.shutdown()
+        if (::proximity.isInitialized) proximity.shutdown()
         if (::placed.isInitialized) placed.shutdown()
         if (::holograms.isInitialized) holograms.close()
         if (::scope.isInitialized) scope.cancel("XaliCrates disabling")
